@@ -1223,6 +1223,146 @@
       padding: 12px 20px;
     }
   }
+  /* --- Rest mode slideshow image --- */
+  .rest-image-panel {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) scale(0.94);
+    width: min(880px, 94vw);
+    z-index: 28;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+      opacity 1.1s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 1.15s cubic-bezier(0.22, 1, 0.36, 1),
+      visibility 0s linear 1.15s;
+    border-radius: 18px;
+    overflow: hidden;
+    border: 1.5px solid rgba(var(--orb-glow), 0.35);
+    box-shadow: 0 16px 48px rgba(0,0,0,0.5), 0 0 36px rgba(var(--orb-glow), 0.14);
+    background: rgba(6, 10, 18, 0.96);
+    aspect-ratio: 16 / 10;
+    max-height: min(62vh, 560px);
+  }
+  .rest-image-panel.visible {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translate(-50%, -50%) scale(1);
+    transition:
+      opacity 1.1s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 1.15s cubic-bezier(0.22, 1, 0.36, 1),
+      visibility 0s linear 0s;
+  }
+  .rest-image-panel img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center;
+    display: block;
+    background: #0a0e14;
+    transform: scale(1.04);
+    transition: transform 12s ease-out, opacity 0.9s ease;
+    opacity: 0.92;
+  }
+  .rest-image-panel.visible img {
+    transform: scale(1);
+    opacity: 1;
+  }
+  .rest-stack .rest-message,
+  .rest-stack .rest-dashboard {
+    transition:
+      opacity 1s cubic-bezier(0.22, 1, 0.36, 1),
+      filter 1s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 1s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .rest-stack.showing-image .rest-message,
+  .rest-stack.showing-image .rest-dashboard {
+    opacity: 0 !important;
+    pointer-events: none;
+    filter: blur(10px);
+    transform: scale(0.97);
+  }
+  .rest-image-thumbs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .rest-image-thumb {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(var(--orb-glow), 0.3);
+    background: rgba(0,0,0,0.35);
+  }
+  .rest-image-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .rest-image-thumb .ri-del {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,80,80,0.5);
+    background: rgba(20,8,8,0.75);
+    color: #ff6b6b;
+    cursor: pointer;
+    font-size: 0.65rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+  }
+  .rest-image-thumb .ri-del:hover {
+    background: rgba(255,60,60,0.35);
+  }
+  .rest-image-upload-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-top: 6px;
+  }
+  .rest-image-upload-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(var(--orb-glow), 0.45);
+    background: linear-gradient(135deg, rgba(var(--orb-glow), 0.3), rgba(var(--orb-glow), 0.12));
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.72rem;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    text-transform: uppercase;
+  }
+  .rest-image-upload-btn:hover {
+    background: linear-gradient(135deg, rgba(var(--orb-glow), 0.5), rgba(var(--orb-glow), 0.2));
+  }
+  .rest-image-upload-btn input[type="file"] {
+    display: none;
+  }
+  @media (max-width: 600px) {
+    .rest-image-panel {
+      width: min(96vw, 520px);
+      max-height: min(48vh, 360px);
+      aspect-ratio: 4 / 3;
+      border-radius: 14px;
+    }
+    .rest-image-thumbs { grid-template-columns: repeat(2, 1fr); }
+  }
+
   .rest-location {
     font-size: 0.72rem;
     color: rgba(255,255,255,0.55);
@@ -2216,6 +2356,9 @@
       <!-- Rest mode dashboard -->
       <div class="rest-stack" id="restStack">
       <div class="rest-message" id="restMessage"></div>
+      <div class="rest-image-panel" id="restImagePanel" aria-hidden="true">
+        <img id="restImageEl" alt="Imagen de descanso" />
+      </div>
       <div class="rest-dashboard" id="restDashboard">
         <div class="rest-clock" id="restClock">--:--</div>
         <div class="rest-date" id="restDate">—</div>
@@ -2555,6 +2698,39 @@
           <div class="settings-info" style="margin-top:6px;">Se muestran rotando cada 1 minuto cuando META descansa.</div>
         </div>
         <div class="settings-section">
+          <div class="settings-label">Imágenes en modo descanso</div>
+          <div class="settings-hint" style="margin-bottom:8px;">Sube fotos sin límite de cantidad. Se redimensionan automáticamente y se guardan en Supabase para todos los dispositivos. En descanso alternan con la info; si no hay fotos, solo se muestra la info.</div>
+          <div class="rest-image-upload-row">
+            <label class="rest-image-upload-btn" for="restImageFileInput">
+              <i class="fas fa-image"></i> Subir imagen(es)
+              <input type="file" id="restImageFileInput" accept="image/*" multiple>
+            </label>
+          </div>
+          <div class="rest-image-thumbs" id="restImageThumbs"></div>
+          <div class="settings-label" style="margin-top:14px">Tiempos del ciclo</div>
+          <div class="reminder-form-row" style="margin-bottom:8px;grid-template-columns:1fr 1fr;gap:8px;">
+            <label>Mostrar info
+              <div style="display:flex;gap:6px;align-items:stretch;margin-top:4px;">
+                <input type="number" id="restImageIntervalValue" class="settings-input" min="1" step="1" title="Duración de frase, hora y clima" style="flex:1;">
+                <select id="restImageIntervalUnit" class="settings-select" style="width:auto;min-width:110px;padding-right:28px;">
+                  <option value="s">segundos</option>
+                  <option value="min">minutos</option>
+                </select>
+              </div>
+            </label>
+            <label>Mostrar foto
+              <div style="display:flex;gap:6px;align-items:stretch;margin-top:4px;">
+                <input type="number" id="restImageDurationValue" class="settings-input" min="1" step="1" title="Duración de cada imagen" style="flex:1;">
+                <select id="restImageDurationUnit" class="settings-select" style="width:auto;min-width:110px;padding-right:28px;">
+                  <option value="s">segundos</option>
+                  <option value="min">minutos</option>
+                </select>
+              </div>
+            </label>
+          </div>
+          <div class="settings-hint">Por defecto: 5 minutos de información y 1 minuto de foto aleatoria. Elige segundos o minutos en cada control. Los tiempos y las fotos se guardan en la nube.</div>
+        </div>
+        <div class="settings-section">
           <div class="settings-label">Herramientas internas</div>
           <div class="hidden-apps-grid" id="hiddenAppsGrid"></div>
         </div>
@@ -2582,6 +2758,10 @@
     ORB_SIZE: 100,
     IDLE_TIMEOUT_MS: 10000,
     REST_PHRASES: [],
+    REST_IMAGE_INTERVAL_MS: 300000,
+    REST_IMAGE_DURATION_MS: 60000,
+    REST_IMAGE_INTERVAL_UNIT: 'min',
+    REST_IMAGE_DURATION_UNIT: 'min',
     MIC_ENABLED: true,
     HAND_GESTURE_ENABLED: false,
     AIR_DWELL_SEC_PC: 1.5,
@@ -2618,6 +2798,26 @@
   }
   settings.AIR_DWELL_SEC_PC = normalizeAirDwellSec(settings.AIR_DWELL_SEC_PC, 1.5);
   settings.AIR_DWELL_SEC_MOBILE = normalizeAirDwellSec(settings.AIR_DWELL_SEC_MOBILE, 2.5);
+  function normalizeRestImageMs(v, fallback, minMs) {
+    const n = parseInt(v, 10);
+    if (!Number.isFinite(n) || n < minMs) return fallback;
+    return n;
+  }
+  settings.REST_IMAGE_INTERVAL_MS = normalizeRestImageMs(settings.REST_IMAGE_INTERVAL_MS, 300000, 5000);
+  settings.REST_IMAGE_DURATION_MS = normalizeRestImageMs(settings.REST_IMAGE_DURATION_MS, 60000, 5000);
+  if (settings.REST_IMAGE_INTERVAL_UNIT !== 's' && settings.REST_IMAGE_INTERVAL_UNIT !== 'min') {
+    settings.REST_IMAGE_INTERVAL_UNIT = 'min';
+  }
+  if (settings.REST_IMAGE_DURATION_UNIT !== 's' && settings.REST_IMAGE_DURATION_UNIT !== 'min') {
+    settings.REST_IMAGE_DURATION_UNIT = 'min';
+  }
+  // Imágenes: pueden venir embebidas en settings desde la nube (se extraen después de cargar restImages)
+  if (Array.isArray(settings.REST_IMAGES)) {
+    try {
+      localStorage.setItem('meta-rest-images', JSON.stringify(settings.REST_IMAGES));
+    } catch (e) {}
+    delete settings.REST_IMAGES;
+  }
 
 
 
@@ -2659,7 +2859,14 @@
   }
 
   async function pushCloudState() {
-    if (!supabaseClient || applyingRemote || syncInFlight) return;
+    if (!supabaseClient || applyingRemote) return false;
+    // Esperar si hay otro push en curso (hasta ~8 s)
+    let waited = 0;
+    while (syncInFlight && waited < 8000) {
+      await new Promise(r => setTimeout(r, 150));
+      waited += 150;
+    }
+    if (syncInFlight) return false;
     syncInFlight = true;
     try {
       // MIC / gestos / tiempos de clic digital son por dispositivo (no se sincronizan)
@@ -2668,7 +2875,12 @@
       delete settingsForCloud.HAND_GESTURE_ENABLED;
       delete settingsForCloud.AIR_DWELL_SEC_PC;
       delete settingsForCloud.AIR_DWELL_SEC_MOBILE;
-
+      // Fotos de descanso: fuente de verdad en Supabase (settings.REST_IMAGES)
+      try {
+        settingsForCloud.REST_IMAGES = (typeof restImages !== 'undefined' && Array.isArray(restImages)) ? restImages : [];
+      } catch (e) {
+        settingsForCloud.REST_IMAGES = [];
+      }
 
       const payload = {
         id: APP_STATE_ID,
@@ -2684,11 +2896,15 @@
         .maybeSingle();
       if (error) {
         console.warn('Supabase push error', error);
-      } else if (data && data.updated_at) {
+        return false;
+      }
+      if (data && data.updated_at) {
         lastRemoteUpdatedAt = data.updated_at;
       }
+      return true;
     } catch (e) {
       console.warn('Supabase push exception', e);
+      return false;
     } finally {
       syncInFlight = false;
     }
@@ -2712,7 +2928,28 @@
 
 
         if (!Array.isArray(settings.REST_PHRASES)) settings.REST_PHRASES = [];
-        try { localStorage.setItem('meta-hud-settings', JSON.stringify(settings)); } catch (e) {}
+        settings.REST_IMAGE_INTERVAL_MS = normalizeRestImageMs(settings.REST_IMAGE_INTERVAL_MS, 300000, 5000);
+        settings.REST_IMAGE_DURATION_MS = normalizeRestImageMs(settings.REST_IMAGE_DURATION_MS, 60000, 5000);
+        if (settings.REST_IMAGE_INTERVAL_UNIT !== 's' && settings.REST_IMAGE_INTERVAL_UNIT !== 'min') {
+          settings.REST_IMAGE_INTERVAL_UNIT = 'min';
+        }
+        if (settings.REST_IMAGE_DURATION_UNIT !== 's' && settings.REST_IMAGE_DURATION_UNIT !== 'min') {
+          settings.REST_IMAGE_DURATION_UNIT = 'min';
+        }
+        if (Array.isArray(settings.REST_IMAGES)) {
+          try {
+            restImages = settings.REST_IMAGES.filter(x => x && typeof x.dataUrl === 'string');
+          } catch (e) {
+            restImages = [];
+          }
+          try { localStorage.setItem('meta-rest-images', JSON.stringify(restImages)); } catch (e) {}
+          delete settings.REST_IMAGES;
+        }
+        try {
+          const toStore = { ...settings };
+          delete toStore.REST_IMAGES;
+          localStorage.setItem('meta-hud-settings', JSON.stringify(toStore));
+        } catch (e) {}
       }
       if (row.voice_settings && typeof row.voice_settings === 'object') {
         Object.assign(voiceSettings, row.voice_settings);
@@ -2758,6 +2995,9 @@
       if (typeof createParticles === 'function') createParticles();
       if (typeof updateInfoPanel === 'function') updateInfoPanel();
       if (typeof updateMicToggleUI === 'function') updateMicToggleUI();
+      if (typeof renderRestImageThumbs === 'function') renderRestImageThumbs();
+      if (typeof updateRestImageTimingInputs === 'function') updateRestImageTimingInputs();
+      if (typeof renderRestPhrases === 'function') renderRestPhrases();
       if (typeof renderSettingsReminders === 'function') renderSettingsReminders();
       if (typeof renderRestReminders === 'function') renderRestReminders();
       if (typeof renderRestPhrases === 'function') renderRestPhrases();
@@ -2837,7 +3077,11 @@
   }
 
   function saveSettings() {
-    try { localStorage.setItem('meta-hud-settings', JSON.stringify(settings)); } catch (e) {}
+    try {
+      const toStore = { ...settings };
+      delete toStore.REST_IMAGES;
+      localStorage.setItem('meta-hud-settings', JSON.stringify(toStore));
+    } catch (e) {}
     scheduleCloudSync();
   }
   function saveVoiceSettings() {
@@ -3067,6 +3311,7 @@
     startRestClock();
     refreshWeatherForRest();
     updateInfoPanel();
+    startRestImageCycle();
 
     if (!silent) {
       const despedidas = [
@@ -3095,6 +3340,7 @@
     document.getElementById('restMessage')?.classList.remove('visible');
     stopRestClock();
     stopPhraseRotation();
+    stopRestImageCycle();
 
     lastActivityAt = Date.now();
     startIdleWatcher();
@@ -3115,6 +3361,335 @@
   let restPhraseInterval = null;
   let currentPhraseIndex = 0;
   const REST_PHRASE_DURATION_MS = 60000;
+
+  // --- Imágenes modo descanso: memoria + Supabase (localStorage solo caché opcional) ---
+  let restImages = [];
+  try {
+    const raw = localStorage.getItem('meta-rest-images');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) restImages = parsed.filter(x => x && typeof x.dataUrl === 'string');
+    }
+  } catch (e) { restImages = []; }
+
+  let restImageCycleTimer = null;
+  let restImageHideTimer = null;
+  let restImageShowing = false;
+  let restLastImageIdx = -1;
+
+  function estimateDataUrlBytes(dataUrl) {
+    if (!dataUrl) return 0;
+    const i = dataUrl.indexOf(',');
+    const b64 = i >= 0 ? dataUrl.slice(i + 1) : dataUrl;
+    return Math.ceil(b64.length * 0.75);
+  }
+
+  /** Caché local opcional: si falla el quota del navegador, no importa (la nube es la fuente de verdad). */
+  function cacheRestImagesLocally() {
+    try {
+      localStorage.setItem('meta-rest-images', JSON.stringify(restImages));
+      return true;
+    } catch (e) {
+      try { localStorage.removeItem('meta-rest-images'); } catch (e2) {}
+      try {
+        // Intento mínimo: solo metadatos sin dataUrl para no saturar
+        localStorage.setItem('meta-rest-images-meta', JSON.stringify(
+          restImages.map(({ id, name, addedAt, w, h, bytes }) => ({ id, name, addedAt, w, h, bytes }))
+        ));
+      } catch (e3) {}
+      return false;
+    }
+  }
+
+  async function saveRestImages({ silent = false } = {}) {
+    cacheRestImagesLocally();
+    // Forzar push a Supabase (fuente de verdad multi-dispositivo)
+    clearTimeout(syncDebounceTimer);
+    const ok = await pushCloudState();
+    if (!ok && !silent) {
+      console.warn('No se pudo sincronizar imágenes con Supabase');
+    }
+    return ok;
+  }
+
+  /**
+   * Redimensiona para verse completa en laptop y móvil (lado largo ~960px)
+   * y comprime hasta un tamaño razonable para subir a Supabase.
+   */
+  function resizeImageFile(file, maxSide = 960, maxBytes = 120000) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('read'));
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const srcW = img.width || 1;
+          const srcH = img.height || 1;
+          let side = maxSide;
+          let dataUrl = '';
+          let w = srcW, h = srcH;
+
+          const encodeAt = (longSide, quality) => {
+            const sc = Math.min(1, longSide / Math.max(srcW, srcH));
+            w = Math.max(1, Math.round(srcW * sc));
+            h = Math.max(1, Math.round(srcH * sc));
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#0a0e14';
+            ctx.fillRect(0, 0, w, h);
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, 0, w, h);
+            return canvas.toDataURL('image/jpeg', quality);
+          };
+
+          try {
+            // Primero a resolución de pantalla (960) con calidades decrecientes
+            for (const q of [0.7, 0.58, 0.48, 0.4, 0.32]) {
+              dataUrl = encodeAt(side, q);
+              if (estimateDataUrlBytes(dataUrl) <= maxBytes) break;
+            }
+            // Si sigue grande, bajar resolución
+            while (estimateDataUrlBytes(dataUrl) > maxBytes && side > 420) {
+              side = Math.round(side * 0.78);
+              dataUrl = encodeAt(side, 0.38);
+            }
+          } catch (err) {
+            reject(err);
+            return;
+          }
+
+          resolve({
+            id: 'ri_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9),
+            dataUrl,
+            name: (file.name || 'imagen').slice(0, 80),
+            addedAt: Date.now(),
+            w, h,
+            bytes: estimateDataUrlBytes(dataUrl)
+          });
+        };
+        img.onerror = () => reject(new Error('img'));
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function addRestImageFiles(fileList) {
+    const files = Array.from(fileList || []).filter(f => f && f.type && f.type.startsWith('image/'));
+    if (!files.length) return;
+
+    const uploadBtn = document.querySelector('label.rest-image-upload-btn');
+    const prevLabel = uploadBtn ? uploadBtn.innerHTML : '';
+    if (uploadBtn) {
+      uploadBtn.style.opacity = '0.7';
+      uploadBtn.style.pointerEvents = 'none';
+    }
+
+    const before = restImages.slice();
+    let added = 0;
+    try {
+      for (const file of files) {
+        try {
+          const item = await resizeImageFile(file);
+          restImages.push(item);
+          added++;
+        } catch (e) {
+          console.warn('Error procesando imagen', e);
+        }
+      }
+      if (!added) {
+        if (uploadBtn) {
+          uploadBtn.style.opacity = '';
+          uploadBtn.style.pointerEvents = '';
+        }
+        renderRestImageThumbs();
+        return;
+      }
+      renderRestImageThumbs();
+      const ok = await saveRestImages({ silent: true });
+      if (!ok) {
+        // No revertir: se quedan en memoria en este dispositivo; se reintentará en el próximo sync
+        cacheRestImagesLocally();
+        scheduleCloudSync();
+        alert('Las fotos se añadieron en este dispositivo. La sincronización con la nube falló temporalmente; se reintentará automáticamente.');
+      }
+    } catch (e) {
+      console.warn(e);
+      restImages = before;
+      renderRestImageThumbs();
+      alert('No se pudieron procesar las imágenes. Prueba con otro archivo.');
+    } finally {
+      if (uploadBtn) {
+        uploadBtn.style.opacity = '';
+        uploadBtn.style.pointerEvents = '';
+        // restaurar contenido del label si se alteró
+        if (prevLabel && !uploadBtn.querySelector('input')) {
+          /* leave as is – label contains input */
+        }
+      }
+    }
+  }
+
+  async function removeRestImage(id) {
+    restImages = restImages.filter(x => x.id !== id);
+    renderRestImageThumbs();
+    await saveRestImages({ silent: true });
+    scheduleCloudSync();
+  }
+
+  function renderRestImageThumbs() {
+    const grid = document.getElementById('restImageThumbs');
+    if (!grid) return;
+    if (!restImages.length) {
+      grid.innerHTML = '<div class="rest-empty" style="grid-column:1/-1;padding:8px">Sin imágenes. Sube fotos para el modo descanso.</div>';
+      return;
+    }
+    grid.innerHTML = restImages.map(img => `
+      <div class="rest-image-thumb" data-id="${img.id}">
+        <img src="${img.dataUrl}" alt="">
+        <button type="button" class="ri-del" data-id="${img.id}" title="Eliminar"><i class="fas fa-times"></i></button>
+      </div>
+    `).join('');
+    grid.querySelectorAll('.ri-del').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        removeRestImage(btn.dataset.id);
+      });
+    });
+  }
+
+  function msToUnitValue(ms, unit) {
+    const n = Number(ms) || 0;
+    if (unit === 'min') return Math.max(1, Math.round(n / 60000));
+    return Math.max(1, Math.round(n / 1000));
+  }
+  function unitValueToMs(value, unit) {
+    let n = parseFloat(value);
+    if (!Number.isFinite(n) || n < 1) n = 1;
+    n = Math.round(n);
+    const ms = unit === 'min' ? n * 60000 : n * 1000;
+    return Math.max(5000, ms);
+  }
+
+  function updateRestImageTimingInputs() {
+    const iVal = document.getElementById('restImageIntervalValue');
+    const iUnit = document.getElementById('restImageIntervalUnit');
+    const dVal = document.getElementById('restImageDurationValue');
+    const dUnit = document.getElementById('restImageDurationUnit');
+    const iu = settings.REST_IMAGE_INTERVAL_UNIT === 's' ? 's' : 'min';
+    const du = settings.REST_IMAGE_DURATION_UNIT === 's' ? 's' : 'min';
+    if (iUnit) iUnit.value = iu;
+    if (dUnit) dUnit.value = du;
+    if (iVal) iVal.value = String(msToUnitValue(settings.REST_IMAGE_INTERVAL_MS || 300000, iu));
+    if (dVal) dVal.value = String(msToUnitValue(settings.REST_IMAGE_DURATION_MS || 60000, du));
+  }
+
+  function commitRestImageTiming() {
+    const iVal = document.getElementById('restImageIntervalValue');
+    const iUnit = document.getElementById('restImageIntervalUnit');
+    const dVal = document.getElementById('restImageDurationValue');
+    const dUnit = document.getElementById('restImageDurationUnit');
+    const iu = (iUnit && iUnit.value === 's') ? 's' : 'min';
+    const du = (dUnit && dUnit.value === 's') ? 's' : 'min';
+    settings.REST_IMAGE_INTERVAL_UNIT = iu;
+    settings.REST_IMAGE_DURATION_UNIT = du;
+    if (iVal) {
+      settings.REST_IMAGE_INTERVAL_MS = unitValueToMs(iVal.value, iu);
+      iVal.value = String(msToUnitValue(settings.REST_IMAGE_INTERVAL_MS, iu));
+    }
+    if (dVal) {
+      settings.REST_IMAGE_DURATION_MS = unitValueToMs(dVal.value, du);
+      dVal.value = String(msToUnitValue(settings.REST_IMAGE_DURATION_MS, du));
+    }
+    saveSettings();
+    if (!attentionActive && restImages.length) {
+      stopRestImageCycle();
+      startRestImageCycle();
+    }
+  }
+
+  function pickRandomRestImage() {
+    if (!restImages.length) return null;
+    if (restImages.length === 1) return restImages[0];
+    let idx = Math.floor(Math.random() * restImages.length);
+    if (idx === restLastImageIdx) idx = (idx + 1) % restImages.length;
+    restLastImageIdx = idx;
+    return restImages[idx];
+  }
+
+  const REST_CROSSFADE_MS = 1100;
+
+  function showRestImage() {
+    if (!restImages.length || attentionActive) return;
+    const item = pickRandomRestImage();
+    if (!item) return;
+    const panel = document.getElementById('restImagePanel');
+    const imgEl = document.getElementById('restImageEl');
+    const stack = document.getElementById('restStack');
+    if (!panel || !imgEl) return;
+
+    // Reiniciar animación suave de la foto
+    imgEl.style.transition = 'none';
+    imgEl.style.opacity = '0.85';
+    imgEl.style.transform = 'scale(1.05)';
+    imgEl.src = item.dataUrl;
+    void imgEl.offsetWidth;
+    imgEl.style.transition = '';
+
+    restImageShowing = true;
+    if (stack) stack.classList.add('showing-image');
+    // Pequeño desfase para que el fade-out de info empiece junto con el fade-in de la foto
+    requestAnimationFrame(() => {
+      panel.classList.add('visible');
+      panel.setAttribute('aria-hidden', 'false');
+    });
+  }
+
+  function hideRestImage() {
+    const panel = document.getElementById('restImagePanel');
+    const stack = document.getElementById('restStack');
+    restImageShowing = false;
+    if (panel) {
+      panel.classList.remove('visible');
+      panel.setAttribute('aria-hidden', 'true');
+    }
+    if (stack) stack.classList.remove('showing-image');
+  }
+
+  function stopRestImageCycle() {
+    if (restImageCycleTimer) { clearTimeout(restImageCycleTimer); restImageCycleTimer = null; }
+    if (restImageHideTimer) { clearTimeout(restImageHideTimer); restImageHideTimer = null; }
+    hideRestImage();
+  }
+
+  function startRestImageCycle() {
+    stopRestImageCycle();
+    // Sin fotos: solo info (frase, hora, clima, recordatorios)
+    if (!restImages.length) return;
+    const interval = Math.max(5000, settings.REST_IMAGE_INTERVAL_MS || 300000);
+    const duration = Math.max(5000, settings.REST_IMAGE_DURATION_MS || 60000);
+
+    const scheduleNext = () => {
+      restImageCycleTimer = setTimeout(() => {
+        if (attentionActive || !restImages.length) return;
+        showRestImage();
+        // La foto permanece `duration` y luego vuelve la info con el mismo crossfade
+        restImageHideTimer = setTimeout(() => {
+          hideRestImage();
+          if (!attentionActive && restImages.length) {
+            // Esperar a que termine el fade antes de contar el próximo ciclo de info
+            restImageCycleTimer = setTimeout(() => {
+              if (!attentionActive && restImages.length) scheduleNext();
+            }, REST_CROSSFADE_MS);
+          }
+        }, duration);
+      }, interval);
+    };
+    scheduleNext();
+  }
 
   function saveReminders() {
     try { localStorage.setItem('meta-reminders', JSON.stringify(reminders)); } catch (e) {}
@@ -5093,6 +5668,8 @@
       populateVoiceSelect();
       updateInfoPanel();
       renderRestPhrases();
+      if (typeof renderRestImageThumbs === 'function') renderRestImageThumbs();
+      if (typeof updateRestImageTimingInputs === 'function') updateRestImageTimingInputs();
       if (typeof updateHandGestureUI === 'function') updateHandGestureUI();
     }
   });
@@ -5365,6 +5942,27 @@
     if (input) input.value = '';
     renderRestPhrases();
   });
+  document.getElementById('restImageFileInput')?.addEventListener('change', (e) => {
+    const files = e.target.files;
+    if (files && files.length) addRestImageFiles(files);
+    e.target.value = '';
+  });
+  ['restImageIntervalValue', 'restImageDurationValue'].forEach(id => {
+    document.getElementById(id)?.addEventListener('change', commitRestImageTiming);
+    document.getElementById(id)?.addEventListener('blur', commitRestImageTiming);
+  });
+  document.getElementById('restImageIntervalUnit')?.addEventListener('change', () => {
+    const u = document.getElementById('restImageIntervalUnit')?.value === 's' ? 's' : 'min';
+    settings.REST_IMAGE_INTERVAL_UNIT = u;
+    updateRestImageTimingInputs();
+    saveSettings();
+  });
+  document.getElementById('restImageDurationUnit')?.addEventListener('change', () => {
+    const u = document.getElementById('restImageDurationUnit')?.value === 's' ? 's' : 'min';
+    settings.REST_IMAGE_DURATION_UNIT = u;
+    updateRestImageTimingInputs();
+    saveSettings();
+  });
   document.getElementById('restPhraseInput')?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
@@ -5378,6 +5976,7 @@
     if (confirm('¿Restablecer toda la configuración a los valores por defecto?')) {
       localStorage.removeItem('meta-hud-settings');
       localStorage.removeItem('meta-voice-settings');
+      localStorage.removeItem('meta-rest-images');
       location.reload();
     }
   });
@@ -6353,6 +6952,8 @@
     updateInfoPanel();
     renderSettingsReminders();
     renderRestPhrases();
+    renderRestImageThumbs();
+    updateRestImageTimingInputs();
     setInterval(checkRemindersDue, 4000);
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) {
