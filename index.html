@@ -506,32 +506,78 @@
   .orb-container.off .orb-layer-1,
   .orb-container.off .orb-layer-2,
   .orb-container.off .orb-layer-3 { animation-play-state: paused; opacity: 0.3; }
+  .orb-container.off .orb-pulse-ring,
+  .orb-container.rest-dim .orb-pulse-ring { animation: none !important; opacity: 0 !important; }
+  .orb-container.off #orbViz,
+  .orb-container.rest-dim #orbViz { opacity: 0.15; }
+
+  /* Anillos de expansión estilo Anti-Mosquito */
+  .orb-pulse-ring {
+    position: absolute;
+    inset: 12%;
+    border-radius: 50%;
+    border: 2px solid rgba(var(--orb-glow), 0.7);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 4;
+  }
+  .orb-container:not(.off):not(.rest-dim) .orb-pulse-ring {
+    animation: orbExpandPulse 2.6s cubic-bezier(.2, .7, .4, 1) infinite;
+  }
+  .orb-container:not(.off):not(.rest-dim) .orb-pulse-ring:nth-of-type(1) { animation-delay: 0s; }
+  .orb-container:not(.off):not(.rest-dim) .orb-pulse-ring:nth-of-type(2) { animation-delay: 0.85s; }
+  .orb-container:not(.off):not(.rest-dim) .orb-pulse-ring:nth-of-type(3) { animation-delay: 1.7s; }
+  @keyframes orbExpandPulse {
+    0%   { transform: scale(0.45); opacity: 0.85; }
+    100% { transform: scale(1.45); opacity: 0; }
+  }
+
+  /* Canvas: onda irregular + anillo de guiones (como Anti-Mosquito) */
+  #orbViz {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 6;
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity 0.45s ease;
+  }
 
   .orb-container.clicked .orb-core { animation: clickedPulse 0.6s ease-out; }
   @keyframes clickedPulse {
     0% { transform: scale(1); }
-    40% { transform: scale(1.4); filter: blur(20px) brightness(2.5); }
+    40% { transform: scale(1.35); filter: blur(16px) brightness(2.2); }
     100% { transform: scale(1.08); }
   }
 
   .orb-layer { position: absolute; border-radius: 50%; mix-blend-mode: screen; filter: blur(20px); }
+  /* Centro: orbe resplandeciente (no icono power) */
   .orb-core {
     width: 150px; height: 150px;
-    background: radial-gradient(circle at 40% 40%, 
-      #ffffff 0%, 
-      color-mix(in srgb, var(--orb-color-1) 70%, white) 15%,
-      var(--orb-color-1) 35%, 
-      var(--orb-color-2) 55%, 
-      var(--orb-color-3) 80%, 
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 40%,
+      #ffffff 0%,
+      color-mix(in srgb, var(--orb-color-1) 70%, white) 12%,
+      var(--orb-color-1) 32%,
+      var(--orb-color-2) 55%,
+      var(--orb-color-3) 78%,
       transparent 100%);
-    filter: blur(8px) brightness(1.3);
+    filter: blur(8px) brightness(1.35);
     animation: corePulse 3s ease-in-out infinite;
     z-index: 10;
-    transition: background 0.8s ease;
+    transition: background 0.8s ease, box-shadow 0.4s ease;
+    box-shadow: 0 0 40px rgba(var(--orb-glow), 0.35);
+  }
+  .orb-container:not(.off):not(.rest-dim) .orb-core {
+    box-shadow:
+      0 0 28px rgba(var(--orb-glow), 0.55),
+      0 0 60px rgba(var(--orb-glow), 0.35),
+      inset 0 0 20px rgba(255, 255, 255, 0.15);
   }
   @keyframes corePulse {
-    0%, 100% { transform: scale(1); filter: blur(8px) brightness(1.3); }
-    50% { transform: scale(1.08); filter: blur(12px) brightness(1.6); }
+    0%, 100% { transform: scale(1); filter: blur(8px) brightness(1.35); }
+    50% { transform: scale(1.08); filter: blur(12px) brightness(1.65); }
   }
   .orb-layer-1 {
     width: 230px; height: 230px;
@@ -2395,6 +2441,10 @@
 
       <div class="orb-layer-wrap">
         <div class="orb-container" id="orbContainer" title="Clic para abrir/cerrar módulos">
+          <div class="orb-pulse-ring"></div>
+          <div class="orb-pulse-ring"></div>
+          <div class="orb-pulse-ring"></div>
+          <canvas id="orbViz" aria-hidden="true"></canvas>
           <div class="orb-layer orb-layer-3"></div>
           <div class="orb-layer orb-layer-2"></div>
           <div class="orb-layer orb-layer-1"></div>
@@ -5628,6 +5678,93 @@
       particlesContainer.appendChild(p);
     }
   }
+
+  /* Visualizador del orbe estilo Anti-Mosquito: halo + onda irregular + anillo de guiones */
+  const orbViz = document.getElementById('orbViz');
+  const orbVizCtx = orbViz ? orbViz.getContext('2d') : null;
+  let orbVizSmooth = 0.35;
+
+  function resizeOrbViz() {
+    if (!orbViz || !orbContainer) return;
+    const r = orbContainer.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = Math.max(1, Math.round(r.width * dpr));
+    const h = Math.max(1, Math.round(r.height * dpr));
+    if (orbViz.width !== w) orbViz.width = w;
+    if (orbViz.height !== h) orbViz.height = h;
+  }
+
+  function drawOrbViz() {
+    requestAnimationFrame(drawOrbViz);
+    if (!orbViz || !orbVizCtx || !orbContainer) return;
+    const w = orbViz.width, h = orbViz.height;
+    if (!w || !h) return;
+
+    const active = !orbContainer.classList.contains('off') && !orbContainer.classList.contains('rest-dim');
+    const target = active ? 1 : 0.12;
+    orbVizSmooth += (target - orbVizSmooth) * 0.12;
+
+    const glow = getComputedStyle(document.body).getPropertyValue('--orb-glow').trim() || '198, 168, 91';
+    const cx = w / 2, cy = h / 2;
+    const R = Math.min(w, h) / 2;
+    const t = performance.now() / 1000;
+    const s = orbVizSmooth;
+
+    orbVizCtx.clearRect(0, 0, w, h);
+
+    // Halo
+    const pulse = 1 + Math.sin(t * 2) * 0.015 + s * 0.08;
+    const glowR = R * 0.62 * pulse;
+    const grad = orbVizCtx.createRadialGradient(cx, cy, R * 0.12, cx, cy, glowR);
+    grad.addColorStop(0, `rgba(${glow}, ${0.06 + s * 0.18})`);
+    grad.addColorStop(1, `rgba(${glow}, 0)`);
+    orbVizCtx.fillStyle = grad;
+    orbVizCtx.beginPath();
+    orbVizCtx.arc(cx, cy, glowR, 0, Math.PI * 2);
+    orbVizCtx.fill();
+
+    // Onda circular deformada
+    const baseR = R * 0.52;
+    const amp = R * 0.01 + s * R * 0.06;
+    const N = 180;
+    orbVizCtx.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const a = (i / N) * Math.PI * 2 - Math.PI / 2;
+      const wob =
+        Math.sin(a * 3 + t * 2.2) * 0.5 +
+        Math.sin(a * 5 - t * 1.7) * 0.3 +
+        Math.sin(a * 7 + t * 3.1) * 0.2;
+      const r = baseR + wob * amp;
+      const x = cx + Math.cos(a) * r;
+      const y = cy + Math.sin(a) * r;
+      i ? orbVizCtx.lineTo(x, y) : orbVizCtx.moveTo(x, y);
+    }
+    orbVizCtx.closePath();
+    orbVizCtx.strokeStyle = active
+      ? `rgba(${glow}, ${0.55 + s * 0.35})`
+      : `rgba(${glow}, 0.18)`;
+    orbVizCtx.lineWidth = 2 * (window.devicePixelRatio || 1);
+    orbVizCtx.stroke();
+
+    // Anillo de guiones giratorio
+    orbVizCtx.save();
+    orbVizCtx.translate(cx, cy);
+    orbVizCtx.rotate(t * 0.35);
+    orbVizCtx.setLineDash([6 * (window.devicePixelRatio || 1), 16 * (window.devicePixelRatio || 1)]);
+    orbVizCtx.strokeStyle = active
+      ? `rgba(${glow}, ${0.28 + s * 0.2})`
+      : `rgba(${glow}, 0.1)`;
+    orbVizCtx.lineWidth = 1.6 * (window.devicePixelRatio || 1);
+    orbVizCtx.beginPath();
+    orbVizCtx.arc(0, 0, baseR * 1.24, 0, Math.PI * 2);
+    orbVizCtx.stroke();
+    orbVizCtx.restore();
+    orbVizCtx.setLineDash([]);
+  }
+
+  resizeOrbViz();
+  window.addEventListener('resize', resizeOrbViz);
+  drawOrbViz();
 
   orbContainer.addEventListener('click', () => {
     orbContainer.classList.add('clicked');
