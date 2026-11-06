@@ -3364,6 +3364,8 @@
     startRestClock();
     refreshWeatherForRest();
     updateInfoPanel();
+    // Siempre comenzar descanso en fase INFO (foto solo después de "Mostrar info")
+    hideRestImage();
     startRestImageCycle();
 
     if (!silent) {
@@ -3425,10 +3427,12 @@
     }
   } catch (e) { restImages = []; }
 
-  let restImageCycleTimer = null;
-  let restImageHideTimer = null;
+  let restImageCycleTimer = null; // phase timer
+  let restImageHideTimer = null;  // kept for compatibility
   let restImageShowing = false;
   let restLastImageIdx = -1;
+  /** Fase del ciclo de descanso: 'idle' | 'info' | 'image' */
+  let restImagePhase = 'idle';
 
   function estimateDataUrlBytes(dataUrl) {
     if (!dataUrl) return 0;
@@ -3712,36 +3716,74 @@
     if (stack) stack.classList.remove('showing-image');
   }
 
-  function stopRestImageCycle() {
+  function clearRestImageTimers() {
     if (restImageCycleTimer) { clearTimeout(restImageCycleTimer); restImageCycleTimer = null; }
     if (restImageHideTimer) { clearTimeout(restImageHideTimer); restImageHideTimer = null; }
+  }
+
+  function stopRestImageCycle() {
+    clearRestImageTimers();
+    restImagePhase = 'idle';
     hideRestImage();
   }
 
+  /**
+   * Ciclo de descanso (máquina de estados):
+   *   INFO (mostrar info = REST_IMAGE_INTERVAL_MS) →
+   *   FOTO (mostrar foto = REST_IMAGE_DURATION_MS) →
+   *   (crossfade) → INFO → …
+   * Siempre arranca en INFO. Nunca muestra foto al entrar en descanso.
+   */
   function startRestImageCycle() {
     stopRestImageCycle();
     // Sin fotos: solo info (frase, hora, clima, recordatorios)
     if (!restImages.length) return;
-    const interval = Math.max(5000, settings.REST_IMAGE_INTERVAL_MS || 300000);
-    const duration = Math.max(5000, settings.REST_IMAGE_DURATION_MS || 60000);
+    if (attentionActive) return;
+    enterRestInfoPhase();
+  }
 
-    const scheduleNext = () => {
+  function enterRestInfoPhase() {
+    if (attentionActive || !restImages.length) {
+      restImagePhase = 'idle';
+      hideRestImage();
+      return;
+    }
+    restImagePhase = 'info';
+    // Garantizar que se vea la info (frase, reloj, clima, recordatorios)
+    hideRestImage();
+    const interval = Math.max(5000, Number(settings.REST_IMAGE_INTERVAL_MS) || 300000);
+    clearRestImageTimers();
+    restImageCycleTimer = setTimeout(() => {
+      restImageCycleTimer = null;
+      if (attentionActive || !restImages.length) return;
+      enterRestImagePhase();
+    }, interval);
+  }
+
+  function enterRestImagePhase() {
+    if (attentionActive || !restImages.length) {
+      restImagePhase = 'idle';
+      hideRestImage();
+      return;
+    }
+    restImagePhase = 'image';
+    showRestImage();
+    const duration = Math.max(5000, Number(settings.REST_IMAGE_DURATION_MS) || 60000);
+    clearRestImageTimers();
+    restImageCycleTimer = setTimeout(() => {
+      restImageCycleTimer = null;
+      hideRestImage();
+      if (attentionActive || !restImages.length) {
+        restImagePhase = 'idle';
+        return;
+      }
+      // Esperar el crossfade antes de volver a contar el tiempo de info
       restImageCycleTimer = setTimeout(() => {
-        if (attentionActive || !restImages.length) return;
-        showRestImage();
-        // La foto permanece `duration` y luego vuelve la info con el mismo crossfade
-        restImageHideTimer = setTimeout(() => {
-          hideRestImage();
-          if (!attentionActive && restImages.length) {
-            // Esperar a que termine el fade antes de contar el próximo ciclo de info
-            restImageCycleTimer = setTimeout(() => {
-              if (!attentionActive && restImages.length) scheduleNext();
-            }, REST_CROSSFADE_MS);
-          }
-        }, duration);
-      }, interval);
-    };
-    scheduleNext();
+        restImageCycleTimer = null;
+        if (!attentionActive && restImages.length) enterRestInfoPhase();
+        else restImagePhase = 'idle';
+      }, REST_CROSSFADE_MS);
+    }, duration);
   }
 
   function saveReminders() {
@@ -6092,16 +6134,33 @@
     document.getElementById(id)?.addEventListener('blur', commitRestImageTiming);
   });
   document.getElementById('restImageIntervalUnit')?.addEventListener('change', () => {
+    const iVal = document.getElementById('restImageIntervalValue');
     const u = document.getElementById('restImageIntervalUnit')?.value === 's' ? 's' : 'min';
     settings.REST_IMAGE_INTERVAL_UNIT = u;
-    updateRestImageTimingInputs();
+    // El número visible se interpreta con la nueva unidad (5 + "segundos" = 5 s)
+    if (iVal) {
+      settings.REST_IMAGE_INTERVAL_MS = unitValueToMs(iVal.value, u);
+      iVal.value = String(msToUnitValue(settings.REST_IMAGE_INTERVAL_MS, u));
+    }
     saveSettings();
+    if (!attentionActive && restImages.length) {
+      stopRestImageCycle();
+      startRestImageCycle();
+    }
   });
   document.getElementById('restImageDurationUnit')?.addEventListener('change', () => {
+    const dVal = document.getElementById('restImageDurationValue');
     const u = document.getElementById('restImageDurationUnit')?.value === 's' ? 's' : 'min';
     settings.REST_IMAGE_DURATION_UNIT = u;
-    updateRestImageTimingInputs();
+    if (dVal) {
+      settings.REST_IMAGE_DURATION_MS = unitValueToMs(dVal.value, u);
+      dVal.value = String(msToUnitValue(settings.REST_IMAGE_DURATION_MS, u));
+    }
     saveSettings();
+    if (!attentionActive && restImages.length) {
+      stopRestImageCycle();
+      startRestImageCycle();
+    }
   });
   document.getElementById('restPhraseInput')?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
