@@ -3126,39 +3126,115 @@
     if (syncInFlight) return false;
     syncInFlight = true;
     try {
-      // MIC / gestos / tiempos de clic digital son por dispositivo (no se sincronizan)
+      // MIC / gestos / tiempos de clic digital son por dispositivo (no se sincronizan).
+      // Rostro + bloqueo facial SÍ se sincronizan (multi-dispositivo).
       const settingsForCloud = { ...settings };
       delete settingsForCloud.MIC_ENABLED;
       delete settingsForCloud.HAND_GESTURE_ENABLED;
-      delete settingsForCloud.FACE_TEMPLATE;
-      delete settingsForCloud.FACE_THUMB;
       delete settingsForCloud.AIR_DWELL_SEC_PC;
       delete settingsForCloud.AIR_DWELL_SEC_MOBILE;
-      // Fotos de descanso: fuente de verdad en Supabase (settings.REST_IMAGES)
+      delete settingsForCloud._faceClearedIntentionally;
+
+      // Fotos de descanso: fuente de verdad en Supabase
       try {
         settingsForCloud.REST_IMAGES = (typeof restImages !== 'undefined' && Array.isArray(restImages)) ? restImages : [];
       } catch (e) {
         settingsForCloud.REST_IMAGES = [];
       }
 
-      const payload = {
+      // --- Protección de rostro: no pisar plantilla remota con null local ---
+      // (salvo borrado explícito con Eliminar rostro)
+      const localHasFace = Array.isArray(settings.FACE_TEMPLATE) && settings.FACE_TEMPLATE.length > 8;
+      let faceCleared = !!settings._faceClearedIntentionally;
+      if (!localHasFace && !faceCleared) {
+        try {
+          const { data: remoteRow } = await supabaseClient
+            .from('meta_app_state')
+            .select('settings, face_template, face_thumb, face_lock_enabled')
+            .eq('id', APP_STATE_ID)
+            .maybeSingle();
+          const rSet = remoteRow && remoteRow.settings && typeof remoteRow.settings === 'object' ? remoteRow.settings : null;
+          const remoteTpl = (rSet && Array.isArray(rSet.FACE_TEMPLATE) && rSet.FACE_TEMPLATE.length > 8)
+            ? rSet.FACE_TEMPLATE
+            : (Array.isArray(remoteRow?.face_template) && remoteRow.face_template.length > 8 ? remoteRow.face_template : null);
+          if (remoteTpl) {
+            settingsForCloud.FACE_TEMPLATE = remoteTpl;
+            settingsForCloud.FACE_THUMB = (rSet && typeof rSet.FACE_THUMB === 'string' ? rSet.FACE_THUMB : null)
+              || (typeof remoteRow?.face_thumb === 'string' ? remoteRow.face_thumb : null);
+            settingsForCloud.FACE_LOCK_ENABLED = typeof rSet?.FACE_LOCK_ENABLED === 'boolean'
+              ? rSet.FACE_LOCK_ENABLED
+              : !!remoteRow?.face_lock_enabled;
+            // También refrescar memoria local para este dispositivo
+            settings.FACE_TEMPLATE = settingsForCloud.FACE_TEMPLATE;
+            settings.FACE_THUMB = settingsForCloud.FACE_THUMB;
+            settings.FACE_LOCK_ENABLED = settingsForCloud.FACE_LOCK_ENABLED;
+          }
+        } catch (e) {
+          console.warn('Face merge pull failed', e);
+        }
+      }
+
+      // Asegurar tipos limpios (array de números + thumb string)
+      if (Array.isArray(settingsForCloud.FACE_TEMPLATE)) {
+        settingsForCloud.FACE_TEMPLATE = settingsForCloud.FACE_TEMPLATE.map(Number).filter(n => Number.isFinite(n));
+        if (settingsForCloud.FACE_TEMPLATE.length < 8) settingsForCloud.FACE_TEMPLATE = null;
+      } else {
+        settingsForCloud.FACE_TEMPLATE = null;
+      }
+      if (typeof settingsForCloud.FACE_THUMB !== 'string' || !settingsForCloud.FACE_THUMB.startsWith('data:')) {
+        settingsForCloud.FACE_THUMB = null;
+      }
+      settingsForCloud.FACE_LOCK_ENABLED = !!settingsForCloud.FACE_LOCK_ENABLED && !!settingsForCloud.FACE_TEMPLATE;
+
+      const basePayload = {
         id: APP_STATE_ID,
         settings: settingsForCloud,
         voice_settings: voiceSettings,
-        reminders: reminders,
+        reminders: typeof reminders !== 'undefined' ? reminders : [],
         updated_at: new Date().toISOString()
       };
-      const { data, error } = await supabaseClient
+      // Intentar con columnas dedicadas; si no existen en Supabase, reintentar solo con settings JSONB
+      const payloadWithFaceCols = {
+        ...basePayload,
+        face_lock_enabled: !!settingsForCloud.FACE_LOCK_ENABLED,
+        face_template: settingsForCloud.FACE_TEMPLATE,
+        face_thumb: settingsForCloud.FACE_THUMB
+      };
+
+      let data = null;
+      let error = null;
+      ({ data, error } = await supabaseClient
         .from('meta_app_state')
-        .upsert(payload, { onConflict: 'id' })
-        .select('updated_at')
-        .maybeSingle();
+        .upsert(payloadWithFaceCols, { onConflict: 'id' })
+        .select('updated_at, settings')
+        .maybeSingle());
+
+      if (error) {
+        console.warn('Supabase push (con face_*) falló, reintentando solo settings JSONB…', error);
+        ({ data, error } = await supabaseClient
+          .from('meta_app_state')
+          .upsert(basePayload, { onConflict: 'id' })
+          .select('updated_at, settings')
+          .maybeSingle());
+      }
+
       if (error) {
         console.warn('Supabase push error', error);
+        try {
+          if (typeof airSetStatus === 'function') airSetStatus('Error al guardar en la nube', false);
+        } catch (e) {}
         return false;
       }
       if (data && data.updated_at) {
         lastRemoteUpdatedAt = data.updated_at;
+      }
+      // Confirmación en consola (útil al depurar multi-dispositivo)
+      try {
+        const has = Array.isArray(settingsForCloud.FACE_TEMPLATE) && settingsForCloud.FACE_TEMPLATE.length > 8;
+        console.log('☁️ Cloud push OK — face:', has, 'lock:', !!settingsForCloud.FACE_LOCK_ENABLED);
+      } catch (e) {}
+      if (faceCleared) {
+        try { delete settings._faceClearedIntentionally; } catch (e) {}
       }
       return true;
     } catch (e) {
@@ -3185,6 +3261,34 @@
         settings.AIR_DWELL_SEC_PC = normalizeAirDwellSec(localDwellPc, 1.5);
         settings.AIR_DWELL_SEC_MOBILE = normalizeAirDwellSec(localDwellMob, 2.5);
 
+        // Normalizar bloqueo facial remoto (settings JSON + columnas dedicadas)
+        // Preferir settings; si faltan, usar columnas face_* de la fila
+        if ((!Array.isArray(settings.FACE_TEMPLATE) || settings.FACE_TEMPLATE.length < 8)
+            && Array.isArray(row.face_template) && row.face_template.length > 8) {
+          settings.FACE_TEMPLATE = row.face_template.map(Number).filter(n => Number.isFinite(n));
+        }
+        if ((typeof settings.FACE_THUMB !== 'string' || !settings.FACE_THUMB)
+            && typeof row.face_thumb === 'string' && row.face_thumb.startsWith('data:')) {
+          settings.FACE_THUMB = row.face_thumb;
+        }
+        if (typeof settings.FACE_LOCK_ENABLED !== 'boolean') {
+          settings.FACE_LOCK_ENABLED = typeof row.face_lock_enabled === 'boolean'
+            ? row.face_lock_enabled
+            : false;
+        }
+        if (settings.FACE_TEMPLATE && !Array.isArray(settings.FACE_TEMPLATE)) settings.FACE_TEMPLATE = null;
+        if (Array.isArray(settings.FACE_TEMPLATE)) {
+          settings.FACE_TEMPLATE = settings.FACE_TEMPLATE.map(Number).filter(n => Number.isFinite(n));
+          if (settings.FACE_TEMPLATE.length < 8) settings.FACE_TEMPLATE = null;
+        }
+        if (typeof settings.FACE_THUMB !== 'string' || !settings.FACE_THUMB.startsWith('data:')) {
+          settings.FACE_THUMB = null;
+        }
+        // Sin plantilla no hay bloqueo efectivo
+        if (!settings.FACE_TEMPLATE) settings.FACE_LOCK_ENABLED = false;
+        // Al recibir plantilla remota, exigir de nuevo verificación en este dispositivo
+        try { if (typeof clearFaceSession === 'function') clearFaceSession(); } catch (e) {}
+        try { console.log('☁️ Cloud pull face:', !!settings.FACE_TEMPLATE, 'lock:', !!settings.FACE_LOCK_ENABLED); } catch (e) {}
 
         if (!Array.isArray(settings.REST_PHRASES)) settings.REST_PHRASES = [];
         settings.REST_IMAGE_INTERVAL_MS = normalizeRestImageMs(settings.REST_IMAGE_INTERVAL_MS, 300000, 5000);
@@ -3254,6 +3358,7 @@
       if (typeof createParticles === 'function') createParticles();
       if (typeof updateInfoPanel === 'function') updateInfoPanel();
       if (typeof updateMicToggleUI === 'function') updateMicToggleUI();
+      if (typeof updateFaceRegUI === 'function') updateFaceRegUI();
       if (typeof renderRestImageThumbs === 'function') renderRestImageThumbs();
       if (typeof updateRestImageTimingInputs === 'function') updateRestImageTimingInputs();
       if (typeof renderRestPhrases === 'function') renderRestPhrases();
@@ -3320,9 +3425,37 @@
       const hasRemoteData =
         (remote.settings && Object.keys(remote.settings).length > 0) ||
         (Array.isArray(remote.reminders) && remote.reminders.length > 0) ||
-        (remote.voice_settings && Object.keys(remote.voice_settings).length > 0);
+        (remote.voice_settings && Object.keys(remote.voice_settings).length > 0) ||
+        (Array.isArray(remote.face_template) && remote.face_template.length > 8) ||
+        !!remote.face_lock_enabled;
       if (hasRemoteData) {
         applyRemoteState(remote, { skipUI: true });
+        // Si este dispositivo tiene rostro local y la nube no, subir
+        const localHas = Array.isArray(settings.FACE_TEMPLATE) && settings.FACE_TEMPLATE.length > 8;
+        const remoteHas = (Array.isArray(settings.FACE_TEMPLATE) && settings.FACE_TEMPLATE.length > 8);
+        // Tras applyRemoteState, settings ya refleja remoto. Si local tenía rostro y remoto no, re-subir.
+        // (apply ya mezcló; si local tenía y remoto no, Object.assign no borra keys ausentes...)
+        // Forzar: si la fila remota no trae plantilla pero local sí, push.
+        const remoteTpl = (remote.settings && Array.isArray(remote.settings.FACE_TEMPLATE) && remote.settings.FACE_TEMPLATE.length > 8)
+          ? remote.settings.FACE_TEMPLATE
+          : (Array.isArray(remote.face_template) && remote.face_template.length > 8 ? remote.face_template : null);
+        if (!remoteTpl) {
+          // Recuperar plantilla solo desde localStorage crudo si apply no la dejó
+          try {
+            const raw = localStorage.getItem('meta-hud-settings');
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed.FACE_TEMPLATE) && parsed.FACE_TEMPLATE.length > 8 && !settings.FACE_TEMPLATE) {
+                settings.FACE_TEMPLATE = parsed.FACE_TEMPLATE;
+                settings.FACE_THUMB = parsed.FACE_THUMB || null;
+                settings.FACE_LOCK_ENABLED = !!parsed.FACE_LOCK_ENABLED;
+              }
+            }
+          } catch (e) {}
+          if (Array.isArray(settings.FACE_TEMPLATE) && settings.FACE_TEMPLATE.length > 8) {
+            await pushCloudState();
+          }
+        }
       } else {
         // Tabla vacía: subir estado local actual
         await pushCloudState();
@@ -6679,11 +6812,28 @@
               // average features
               const avg = samples[0].map((_, i) => samples.reduce((s, f) => s + f[i], 0) / samples.length);
               const thumb = faceCaptureThumb(video);
-              settings.FACE_TEMPLATE = avg;
+              settings.FACE_TEMPLATE = avg.map(Number).filter(n => Number.isFinite(n));
               settings.FACE_THUMB = thumb;
               settings.FACE_LOCK_ENABLED = true;
+              try { delete settings._faceClearedIntentionally; } catch (e) {}
               saveSettings();
               updateFaceRegUI();
+              // Subida inmediata a Supabase (no solo debounce)
+              (async () => {
+                try {
+                  const ok = await pushCloudState();
+                  console.log('☁️ Face register push:', ok);
+                  const st = document.getElementById('faceRegStatus');
+                  if (st) {
+                    st.textContent = ok
+                      ? 'Rostro registrado · sincronizado en la nube'
+                      : 'Rostro local OK · error al sincronizar nube (revisa Supabase)';
+                    st.className = ok ? 'face-reg-status ok' : 'face-reg-status err';
+                  }
+                } catch (e) {
+                  console.warn('Face register push failed', e);
+                }
+              })();
               ov.classList.add('matched');
               if (status) status.textContent = 'Rostro registrado correctamente';
               try { speak(`Rostro registrado. Hola ${settings.USER_NAME}.`); } catch (e) {}
@@ -7716,6 +7866,7 @@
     else faceSessionAuthed = false;
     saveSettings();
     updateFaceRegUI();
+    pushCloudState().then(ok => console.log('☁️ Face lock toggle push:', ok));
   });
   document.getElementById('faceRegisterBtn')?.addEventListener('click', async () => {
     // Allow registration even when lock is on if already in settings (authed or lock off)
@@ -7730,9 +7881,19 @@
     settings.FACE_TEMPLATE = null;
     settings.FACE_THUMB = null;
     settings.FACE_LOCK_ENABLED = false;
+    settings._faceClearedIntentionally = true;
     faceSessionAuthed = false;
     saveSettings();
     updateFaceRegUI();
+    (async () => {
+      try {
+        const ok = await pushCloudState();
+        console.log('☁️ Face clear push:', ok);
+        try { delete settings._faceClearedIntentionally; } catch (e) {}
+      } catch (e) {
+        console.warn('Face clear push failed', e);
+      }
+    })();
   });
 
   async function boot() {
