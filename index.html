@@ -2509,6 +2509,49 @@
   .face-reg-status.ok { color: #66ff99; }
   .face-reg-status.err { color: #ff8888; }
 
+  .face-result-card {
+    display: none;
+    margin: 0 16px 14px;
+    padding: 16px 18px;
+    border-radius: 14px;
+    text-align: center;
+    border: 1.5px solid rgba(var(--orb-glow), 0.35);
+    background: linear-gradient(160deg, rgba(var(--orb-glow), 0.18), rgba(8,12,20,0.9));
+    animation: faceResultIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .face-result-card.visible { display: block; }
+  .face-result-card.ok {
+    border-color: rgba(80, 255, 160, 0.7);
+    background: linear-gradient(160deg, rgba(40, 120, 80, 0.45), rgba(8,12,20,0.95));
+    box-shadow: 0 0 28px rgba(80, 255, 160, 0.25);
+  }
+  .face-result-card.err {
+    border-color: rgba(255, 90, 90, 0.7);
+    background: linear-gradient(160deg, rgba(120, 30, 30, 0.5), rgba(8,12,20,0.95));
+    box-shadow: 0 0 28px rgba(255, 90, 90, 0.25);
+  }
+  .face-result-icon {
+    font-size: 1.8rem;
+    margin-bottom: 6px;
+  }
+  .face-result-title {
+    font-size: 0.95rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+  .face-result-sub {
+    font-size: 0.78rem;
+    color: rgba(255,255,255,0.75);
+    font-weight: 600;
+  }
+  @keyframes faceResultIn {
+    from { opacity: 0; transform: translateY(8px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
   .face-profiles-list {
     display: flex;
     flex-direction: column;
@@ -2745,6 +2788,11 @@
         <div class="face-scan-frame"></div>
         <div class="face-scan-scanline"></div>
       </div>
+      <div class="face-result-card" id="faceResultCard" aria-live="polite">
+        <div class="face-result-icon" id="faceResultIcon">✓</div>
+        <div class="face-result-title" id="faceResultTitle">—</div>
+        <div class="face-result-sub" id="faceResultSub"></div>
+      </div>
       <div class="face-scan-status" id="faceScanStatus">Inicializando cámara…</div>
       <div class="face-scan-actions">
         <button type="button" class="face-scan-btn ghost" id="faceScanCancel">Cancelar</button>
@@ -2952,7 +3000,7 @@
           <div class="toggle-row">
             <div>
               <div class="toggle-label">Reconocimiento de voz</div>
-              <div class="toggle-description">En móvil puede interferir con el uso de la app. Desactívalo si el micrófono se enciende y apaga solo.</div>
+              <div class="toggle-description">Solo en este dispositivo (no se sincroniza). Desactívalo si no quieres escuchar ni dictar comandos de voz.</div>
             </div>
             <label class="toggle-switch"><input type="checkbox" id="toggleMicEnabled" checked><span class="toggle-slider"></span></label>
           </div>
@@ -2963,7 +3011,7 @@
           <div class="toggle-row">
             <div>
               <div class="toggle-label">Gestos de mano (sin contacto)</div>
-              <div class="toggle-description">Solo el índice: 1 mano = apuntar (dorado). En PC, 2 manos (índice izquierdo activa) cargan el clic en el derecho. En móvil basta 1 índice. Tiempo configurable abajo. Cámara oculta.</div>
+              <div class="toggle-description">Solo en este dispositivo (no se sincroniza). Solo el índice: 1 mano = apuntar. En PC, 2 manos cargan el clic. En móvil basta 1 índice. Cámara oculta.</div>
 
 
 
@@ -5155,6 +5203,11 @@
   }
 
   function speak(text, onComplete) {
+    // Sin micrófono/voz activa: no hablar (solo UI)
+    if (settings && settings.MIC_ENABLED === false) {
+      if (typeof onComplete === 'function') try { onComplete(); } catch (e) {}
+      return;
+    }
     if (!('speechSynthesis' in window)) {
       if (onComplete) onComplete();
       if (attentionActive) { lastActivityAt = Date.now(); startIdleWatcher(); }
@@ -5581,9 +5634,8 @@
         /^(menu|secciones|modulos)$/.test(act) ||
         /\b(abre|abrir)\s+menu\b/.test(act)) {
       if (requireFaceAuth()) {
-        speak('Necesito verificar tu rostro.');
         requestFaceUnlock('menu').then((ok) => {
-          if (ok) { showMenu(); speak('Abro el menú.'); }
+          if (ok) showMenu();
         });
         return;
       }
@@ -5618,7 +5670,6 @@
             speak(`Abro ${m ? m.title : id}.`);
           };
           if (requireFaceAuth()) {
-            speak('Necesito verificar tu rostro.');
             requestFaceUnlock('menu').then((ok) => { if (ok) openMod(); });
             return;
           }
@@ -5630,7 +5681,6 @@
     const appMatch = findAppByVoice(act);
     if (appMatch) {
       if (requireFaceAuth()) {
-        speak('Necesito verificar tu rostro.');
         requestFaceUnlock('menu').then((ok) => { if (ok) openAppByVoice(appMatch); });
         return;
       }
@@ -6800,6 +6850,26 @@
     faceSessionAuthed = false;
   }
 
+  function hideFaceResultCard() {
+    const card = document.getElementById('faceResultCard');
+    if (!card) return;
+    card.classList.remove('visible', 'ok', 'err');
+  }
+
+  /** Tarjeta modal visual (sin voz) para resultado facial */
+  function showFaceResultCard(kind, title, sub) {
+    const card = document.getElementById('faceResultCard');
+    const icon = document.getElementById('faceResultIcon');
+    const t = document.getElementById('faceResultTitle');
+    const s = document.getElementById('faceResultSub');
+    if (!card) return;
+    card.classList.remove('ok', 'err');
+    card.classList.add('visible', kind === 'ok' ? 'ok' : 'err');
+    if (icon) icon.textContent = kind === 'ok' ? '✓' : '✗';
+    if (t) t.textContent = title || (kind === 'ok' ? 'Acceso permitido' : 'Acceso denegado');
+    if (s) s.textContent = sub || '';
+  }
+
   function findBestFaceMatch(descriptor) {
     if (!isValidFaceTemplate(descriptor)) return null;
     let best = null;
@@ -7079,6 +7149,7 @@
       ov.classList.remove('matched', 'failed');
       ov.classList.add('visible');
       ov.setAttribute('aria-hidden', 'false');
+      try { hideFaceResultCard(); } catch (e) {}
 
       const regNameInput = document.getElementById('faceRegNameInput');
       const regName = (regNameInput && regNameInput.value.trim())
@@ -7169,15 +7240,14 @@
                 if (existing && existing.matched) {
                   ov.classList.add('failed');
                   ov.classList.remove('matched');
-                  if (status) {
-                    status.textContent = `✗ Este rostro ya está registrado como «${existing.profile.name}»`;
-                  }
-                  try { speak(`Este rostro ya está registrado como ${existing.profile.name}.`); } catch (e) {}
+                  if (status) status.textContent = '';
+                  showFaceResultCard('err', 'Acceso denegado',
+                    `Este rostro ya está registrado como «${existing.profile.name}». No se puede duplicar.`);
                   setTimeout(() => closeFaceScanOverlay({
                     ok: false,
                     reason: 'duplicate',
                     existingName: existing.profile.name
-                  }), 1600);
+                  }), 2000);
                   return;
                 }
 
@@ -7185,12 +7255,12 @@
                 const added = addFaceProfile(regName, avg, thumb);
                 if (!added || !added.ok) {
                   ov.classList.add('failed');
-                  if (status) {
-                    status.textContent = added && added.reason === 'duplicate'
-                      ? `✗ Este rostro ya está registrado como «${added.existingName}»`
-                      : 'No se pudo registrar el rostro';
-                  }
-                  setTimeout(() => closeFaceScanOverlay({ ok: false, reason: added?.reason || 'fail' }), 1400);
+                  if (status) status.textContent = '';
+                  showFaceResultCard('err', 'No se pudo registrar',
+                    added && added.reason === 'duplicate'
+                      ? `Este rostro ya está registrado como «${added.existingName}».`
+                      : 'Inténtalo de nuevo con mejor iluminación.');
+                  setTimeout(() => closeFaceScanOverlay({ ok: false, reason: added?.reason || 'fail' }), 1800);
                   return;
                 }
                 const profile = added.profile;
@@ -7198,8 +7268,8 @@
                 updateFaceRegUI();
                 ov.classList.add('matched');
                 ov.classList.remove('failed');
-                if (status) status.textContent = `✓ Rostro de «${profile.name}» registrado`;
-                try { speak(`Rostro de ${profile.name} registrado.`); } catch (e) {}
+                if (status) status.textContent = '';
+                showFaceResultCard('ok', 'Rostro registrado', `«${profile.name}» se añadió a la lista autorizada.`);
                 if (regNameInput) regNameInput.value = '';
                 (async () => {
                   try {
@@ -7245,13 +7315,16 @@
                 unlockFinished = true;
                 if (faceRaf) { cancelAnimationFrame(faceRaf); faceRaf = null; }
                 faceSessionAuthed = true;
-                try { speak(`Acceso permitido. Bienvenido ${result.profile.name}.`); } catch (e) {}
+                if (status) status.textContent = '';
+                showFaceResultCard('ok', 'Acceso permitido', `Bienvenido/a, ${result.profile.name}`);
                 setTimeout(() => closeFaceScanOverlay({
                   ok: true,
                   mode: 'unlock',
                   name: result.profile.name,
                   profileId: result.profile.id
-                }), 750);
+                }), 1200);
+              } else if (status && faceMatchStreak < FACE_MATCH_STREAK_NEED) {
+                status.textContent = `Reconocido: ${result.profile.name}…`;
               }
             } else {
               faceMatchStreak = 0;
@@ -7259,9 +7332,11 @@
               ov.classList.remove('matched');
               if (faceFailStreak >= FACE_DENY_STREAK_NEED) {
                 ov.classList.add('failed');
-                if (status) status.textContent = '✗ Acceso denegado — Rostro no autorizado';
+                if (status) status.textContent = '';
+                showFaceResultCard('err', 'Acceso denegado', 'El rostro no está registrado. No tienes permiso para continuar.');
               } else {
                 ov.classList.remove('failed');
+                try { hideFaceResultCard(); } catch (e) {}
                 if (status) status.textContent = 'Verificando… el rostro no está en la lista autorizada';
               }
             }
