@@ -1509,7 +1509,6 @@
     display: none;
     position: fixed;
     inset: 0;
-    /* Por encima de menú, ajustes y resto de la UI (despierta o en descanso) */
     z-index: 100000;
     background: rgba(0,0,0,0.72);
     backdrop-filter: blur(8px);
@@ -2292,7 +2291,6 @@
   #airCanvas {
     position: fixed; left: 0; top: 0;
     width: 100%; height: 100%;
-    /* Por encima del modal de recordatorios (6000) para ver orbe/mira al apuntar */
     z-index: 6100; pointer-events: none;
     transform: scaleX(-1);
     transform-origin: center center;
@@ -2302,10 +2300,6 @@
     position: fixed; bottom: 62px; left: 50%;
     transform: translateX(-50%);
     z-index: 100009;
-
-
-
-
     font-size: 0.62rem; letter-spacing: 1.5px; text-transform: uppercase;
     color: rgba(var(--orb-glow), 0.8);
     text-shadow: 0 0 12px rgba(var(--orb-glow), 0.5);
@@ -2336,7 +2330,6 @@
   }
   #airCrosshair svg { width: 100%; height: 100%; display: block; }
 
-  /* Orbe DOM encima del modal de recordatorios (100000) */
   #airPointerOrb {
     position: fixed;
     width: 34px; height: 34px;
@@ -2344,7 +2337,6 @@
     border-radius: 50%;
     pointer-events: none;
     z-index: 100011;
-
     opacity: 0;
     transition: opacity 0.12s ease, background 0.2s ease, box-shadow 0.2s ease;
     background: radial-gradient(circle at 38% 32%,
@@ -2627,12 +2619,148 @@
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.12); }
   }
+
+  /* ========== INTRO CONFIGURABLE ========== */
+  #introOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    background: #000;
+    display: grid;
+    place-items: center;
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.8s ease, visibility 0.8s ease;
+    pointer-events: auto;
+  }
+  #introOverlay.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  #introOverlay.off {
+    display: none !important;
+  }
+  /* Fix: el overlay del intro NUNCA debe verse antes de que boot() decida */
+  #introOverlay.pre-hidden {
+    display: none !important;
+  }
+  .intro-logo-stage {
+    perspective: 900px;
+    text-align: center;
+  }
+  .intro-logo {
+    width: min(46vw, 300px);
+    height: auto;
+    display: block;
+    margin: 0 auto;
+    animation: introSpin3d 3.6s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+    filter: drop-shadow(0 25px 60px rgba(var(--orb-glow), 0.35));
+  }
+  @keyframes introSpin3d {
+    0%   { transform: rotateY(0deg)    scale(0.55); opacity: 0; }
+    18%  { opacity: 1; }
+    55%  { transform: rotateY(360deg)  scale(1); }
+    80%  { transform: rotateY(720deg)  scale(1.06); }
+    100% { transform: rotateY(1080deg) scale(1); }
+  }
+  .intro-text {
+    margin-top: 34px;
+    text-align: center;
+    color: #fff;
+    letter-spacing: 0.28em;
+    font-size: 13px;
+    text-transform: uppercase;
+    opacity: 0;
+    animation: introFadeUp 1.2s 0.9s forwards;
+  }
+  @keyframes introFadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  /* Uploader de imagen del intro */
+  .intro-image-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+  .intro-image-upload-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(var(--orb-glow), 0.45);
+    background: linear-gradient(135deg, rgba(var(--orb-glow), 0.3), rgba(var(--orb-glow), 0.12));
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.72rem;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    text-transform: uppercase;
+  }
+  .intro-image-upload-btn:hover {
+    background: linear-gradient(135deg, rgba(var(--orb-glow), 0.5), rgba(var(--orb-glow), 0.2));
+  }
+  .intro-image-upload-btn input[type="file"] {
+    display: none;
+  }
+  .intro-image-preview {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(var(--orb-glow), 0.4);
+    background: rgba(0,0,0,0.35);
+    display: none;
+    flex-shrink: 0;
+  }
+  .intro-image-preview.has-image { display: block; }
+  .intro-image-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+    background: #000;
+  }
+  .intro-image-preview .intro-img-del {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,80,80,0.5);
+    background: rgba(20,8,8,0.8);
+    color: #ff6b6b;
+    cursor: pointer;
+    font-size: 0.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+  }
+  .intro-image-preview .intro-img-del:hover {
+    background: rgba(255,60,60,0.4);
+  }
 </style>
 
 </head>
 
 
 <body class="theme-gold">
+
+  <!-- ===== INTRO CONFIGURABLE ===== -->
+  <div id="introOverlay" class="pre-hidden">
+    <div class="intro-logo-stage">
+      <img class="intro-logo" id="introLogo" alt="Logo intro" />
+      <div class="intro-text" id="introText"></div>
+    </div>
+  </div>
 
   <div id="bg"></div>
   <div class="particles" id="particles"></div>
@@ -2769,12 +2897,9 @@
         <button type="button" class="reminder-alert-snooze" id="reminderAlertSnooze" data-air-action="reminder-snooze">Posponer 10 min</button>
         <button type="button" class="reminder-alert-close" id="reminderAlertClose" data-air-action="reminder-ack">Confirmar lectura</button>
       </div>
-
     </div>
   </div>
 
-
-  
   <!-- Face lock scanner -->
   <div class="face-scan-overlay" id="faceScanOverlay" aria-hidden="true">
     <div class="face-scan-box">
@@ -2927,6 +3052,28 @@
             <div class="slider-header"><span class="slider-label">Escala</span><span class="slider-value" id="orbSizeValue">100%</span></div>
             <input type="range" class="settings-slider" id="orbSizeSlider" min="60" max="130" step="5" value="100">
           </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-label">Intro de la aplicación</div>
+
+          <!-- Imagen del intro: URL o carga desde dispositivo -->
+          <div class="intro-image-row">
+            <label class="intro-image-upload-btn" for="introImageFileInput">
+              <i class="fas fa-upload"></i> Subir imagen
+              <input type="file" id="introImageFileInput" accept="image/*">
+            </label>
+            <div class="intro-image-preview" id="introImagePreview">
+              <img id="introImageThumb" alt="Miniatura intro">
+              <button type="button" class="intro-img-del" id="introImageDelete" title="Eliminar imagen">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+          </div>
+
+          <input type="text" class="settings-input" id="introLogoInput" placeholder="O pega una URL (https://...)" maxlength="200000">
+          <input type="text" class="settings-input" id="introTextInput" placeholder="Texto debajo del logo" maxlength="80" style="margin-top:8px;">
+          <div class="settings-hint">Si no hay imagen ni texto, la app entra directa sin intro. Puedes usar una URL o subir una imagen desde el dispositivo (se guarda como miniatura y se sincroniza).</div>
         </div>
       </div>
 
@@ -3131,7 +3278,9 @@
     MIC_ENABLED: true,
     HAND_GESTURE_ENABLED: false,
     AIR_DWELL_SEC_PC: 1.5,
-    AIR_DWELL_SEC_MOBILE: 2.5
+    AIR_DWELL_SEC_MOBILE: 2.5,
+    INTRO_LOGO_URL: '',
+    INTRO_TEXT: ''
   };
   let settings = { ...DEFAULT_SETTINGS };
   try { const s = localStorage.getItem('meta-hud-settings'); if (s) Object.assign(settings, JSON.parse(s)); } catch (e) {}
@@ -3581,6 +3730,17 @@
       if (typeof populateVoiceSelect === 'function') populateVoiceSelect();
       // Si está en descanso, refrescar frases
       if (!attentionActive && typeof startPhraseRotation === 'function') startPhraseRotation();
+      // Intro inputs (sincronizados)
+      try {
+        const introLogoInput = document.getElementById('introLogoInput');
+        const introTextInput = document.getElementById('introTextInput');
+        if (introLogoInput) {
+          introLogoInput.value = (settings.INTRO_LOGO_URL && !settings.INTRO_LOGO_URL.startsWith('data:'))
+            ? settings.INTRO_LOGO_URL : '';
+        }
+        if (introTextInput) introTextInput.value = settings.INTRO_TEXT || '';
+        if (typeof renderIntroImageUI === 'function') renderIntroImageUI();
+      } catch (e) {}
     } catch (e) {
       console.warn('applySyncedSettingsToUI', e);
     }
@@ -8388,6 +8548,181 @@
     clearAllFaceProfiles();
   });
 
+  // ============================================================
+  // INTRO CONFIGURABLE (logo giratorio + texto)
+  // ============================================================
+  function renderIntroImageUI() {
+    const preview = document.getElementById('introImagePreview');
+    const thumb = document.getElementById('introImageThumb');
+    const input = document.getElementById('introLogoInput');
+    if (!preview || !thumb || !input) return;
+    const url = (settings.INTRO_LOGO_URL || '').trim();
+    if (url) {
+      preview.classList.add('has-image');
+      thumb.src = url;
+      // No pisar el texto si el usuario está escribiendo una URL
+      if (document.activeElement !== input) input.value = url.startsWith('data:') ? '' : url;
+    } else {
+      preview.classList.remove('has-image');
+      thumb.removeAttribute('src');
+      if (document.activeElement !== input) input.value = '';
+    }
+  }
+
+  /** Redimensiona la imagen del intro a un tamaño manejable (lado largo ~512px) */
+  function resizeIntroImage(file, maxSide = 512, maxBytes = 90000) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('read'));
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const srcW = img.width || 1;
+          const srcH = img.height || 1;
+          let side = maxSide;
+          let dataUrl = '';
+          let w = srcW, h = srcH;
+          const encodeAt = (longSide, quality) => {
+            const sc = Math.min(1, longSide / Math.max(srcW, srcH));
+            w = Math.max(1, Math.round(srcW * sc));
+            h = Math.max(1, Math.round(srcH * sc));
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            // Fondo transparente para PNG con transparencia
+            ctx.clearRect(0, 0, w, h);
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, 0, w, h);
+            // PNG si trae transparencia, JPEG si no
+            const hasAlpha = /\.png$/i.test(file.name) || file.type === 'image/png';
+            return canvas.toDataURL(hasAlpha ? 'image/png' : 'image/jpeg', quality);
+          };
+          try {
+            for (const q of [0.9, 0.8, 0.7, 0.6, 0.5]) {
+              dataUrl = encodeAt(side, q);
+              if (estimateDataUrlBytes(dataUrl) <= maxBytes) break;
+            }
+            while (estimateDataUrlBytes(dataUrl) > maxBytes && side > 160) {
+              side = Math.round(side * 0.8);
+              dataUrl = encodeAt(side, 0.7);
+            }
+          } catch (err) {
+            reject(err);
+            return;
+          }
+          resolve(dataUrl);
+        };
+        img.onerror = () => reject(new Error('img'));
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  /**
+   * Muestra el intro si hay config. Uso SOLO manual (no llamar desde boot()
+   * ni desde applySyncedSettingsToUI para no provocar flashes).
+   * El arranque automático lo hace earlyIntroBoot() arriba.
+   */
+  function playIntroIfConfigured() {
+    const overlay = document.getElementById('introOverlay');
+    const logo = document.getElementById('introLogo');
+    const text = document.getElementById('introText');
+    if (!overlay) return;
+
+    const url = (settings.INTRO_LOGO_URL || '').trim();
+    const txt = (settings.INTRO_TEXT || '').trim();
+
+    if (!url && !txt) {
+      overlay.classList.add('off', 'pre-hidden');
+      return;
+    }
+
+    overlay.classList.remove('off', 'pre-hidden');
+
+    if (url) {
+      logo.style.display = '';
+      logo.src = url;
+    } else {
+      logo.style.display = 'none';
+      logo.removeAttribute('src');
+    }
+
+    if (txt) {
+      text.style.display = '';
+      text.textContent = txt;
+    } else {
+      text.style.display = 'none';
+      text.textContent = '';
+    }
+
+    logo.style.animation = 'none';
+    text.style.animation = 'none';
+    void logo.offsetWidth;
+    logo.style.animation = '';
+    text.style.animation = '';
+
+    overlay.classList.remove('hidden');
+    setTimeout(() => {
+      overlay.classList.add('hidden');
+      setTimeout(() => overlay.classList.add('off'), 900);
+    }, 4200);
+  }
+
+  // ============================================================
+  // Arranque TEMPRANO del intro — evita el flash de la app
+  // Se ejecuta al cargar el script, usando SOLO la config local.
+  // Si después Supabase trae otra config, NO se vuelve a lanzar el intro.
+  // ============================================================
+  (function earlyIntroBoot() {
+    const overlay = document.getElementById('introOverlay');
+    if (!overlay) return;
+
+    const url = (settings.INTRO_LOGO_URL || '').trim();
+    const txt = (settings.INTRO_TEXT || '').trim();
+
+    // Sin imagen ni texto → app directa, overlay fuera
+    if (!url && !txt) {
+      overlay.classList.add('off', 'pre-hidden');
+      return;
+    }
+
+    // Hay config → mostrar el intro INMEDIATAMENTE (antes de la nube)
+    const logo = document.getElementById('introLogo');
+    const text = document.getElementById('introText');
+
+    if (url) {
+      logo.style.display = '';
+      logo.src = url;
+    } else {
+      logo.style.display = 'none';
+      logo.removeAttribute('src');
+    }
+
+    if (txt) {
+      text.style.display = '';
+      text.textContent = txt;
+    } else {
+      text.style.display = 'none';
+      text.textContent = '';
+    }
+
+    // Reiniciar animaciones
+    logo.style.animation = 'none';
+    text.style.animation = 'none';
+    void logo.offsetWidth;
+    logo.style.animation = '';
+    text.style.animation = '';
+
+    overlay.classList.remove('off', 'pre-hidden', 'hidden');
+    setTimeout(() => {
+      overlay.classList.add('hidden');
+      setTimeout(() => overlay.classList.add('off'), 900);
+    }, 4200);
+  })();
+
   async function boot() {
     // Sincronizar con Supabase antes de pintar la UI (fuente de verdad multi-dispositivo)
     try {
@@ -8495,6 +8830,60 @@
     updateHandGestureUI();
     updateFaceRegUI();
     if (typeof updateAirDwellInputsUI === 'function') updateAirDwellInputsUI();
+
+    // Intro configurable — inputs, uploader y reproducción
+    const introLogoInput = document.getElementById('introLogoInput');
+    const introTextInput = document.getElementById('introTextInput');
+    const introFileInput = document.getElementById('introImageFileInput');
+    const introImageDelete = document.getElementById('introImageDelete');
+
+    if (introLogoInput) {
+      introLogoInput.value = (settings.INTRO_LOGO_URL && !settings.INTRO_LOGO_URL.startsWith('data:'))
+        ? settings.INTRO_LOGO_URL : '';
+      introLogoInput.addEventListener('change', (e) => {
+        const v = e.target.value.trim();
+        // Si el usuario pega URL, reemplaza cualquier data: previo
+        settings.INTRO_LOGO_URL = v;
+        saveSettings();
+        renderIntroImageUI();
+      });
+    }
+    if (introTextInput) {
+      introTextInput.value = settings.INTRO_TEXT || '';
+      introTextInput.addEventListener('change', (e) => {
+        settings.INTRO_TEXT = e.target.value.trim();
+        saveSettings();
+      });
+    }
+    if (introFileInput) {
+      introFileInput.addEventListener('change', async (e) => {
+        const file = e.target.files && e.target.files[0];
+        e.target.value = '';
+        if (!file || !file.type || !file.type.startsWith('image/')) return;
+        try {
+          const dataUrl = await resizeIntroImage(file);
+          settings.INTRO_LOGO_URL = dataUrl;
+          saveSettings();
+          renderIntroImageUI();
+        } catch (err) {
+          console.warn('Error procesando imagen de intro', err);
+          alert('No se pudo procesar la imagen. Prueba con otra.');
+        }
+      });
+    }
+    if (introImageDelete) {
+      introImageDelete.addEventListener('click', (e) => {
+        e.stopPropagation();
+        settings.INTRO_LOGO_URL = '';
+        saveSettings();
+        renderIntroImageUI();
+      });
+    }
+    renderIntroImageUI();
+
+    // Intro ya se lanzó al cargar el script (earlyIntroBoot).
+    // Aquí solo actualizamos la UI de los inputs si la nube cambió los valores.
+    renderIntroImageUI();
 
     if (settings.HAND_GESTURE_ENABLED) {
 
