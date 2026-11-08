@@ -2354,6 +2354,160 @@
     box-shadow: 0 0 14px rgba(var(--orb-glow), 0.75), 0 0 4px rgba(255,255,255,0.55);
   }
   #airPointerOrb.visible { opacity: 0.95; }
+
+  /* ========== FACE LOCK / SCANNER ========== */
+  .face-scan-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 100050;
+    background: rgba(4, 8, 14, 0.88);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    padding: 20px;
+  }
+  .face-scan-overlay.visible { display: flex; }
+  .face-scan-box {
+    width: min(420px, 94vw);
+    background: linear-gradient(160deg, rgba(10,16,28,0.98), rgba(6,10,18,0.99));
+    border: 1.5px solid rgba(var(--orb-glow), 0.5);
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 50px rgba(var(--orb-glow), 0.22);
+    overflow: hidden;
+    text-align: center;
+  }
+  .face-scan-header {
+    padding: 16px 18px 10px;
+    border-bottom: 1px solid rgba(var(--orb-glow), 0.18);
+  }
+  .face-scan-title {
+    font-size: 0.78rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgb(var(--orb-glow));
+    font-weight: 600;
+  }
+  .face-scan-sub {
+    margin-top: 6px;
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.6);
+  }
+  .face-scan-viewport {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    max-height: min(52vh, 420px);
+    background: #05080e;
+    overflow: hidden;
+  }
+  .face-scan-viewport video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+  }
+  .face-scan-viewport canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    transform: scaleX(-1);
+    pointer-events: none;
+  }
+  .face-scan-frame {
+    position: absolute;
+    left: 50%;
+    top: 46%;
+    width: min(72%, 260px);
+    aspect-ratio: 3 / 4;
+    transform: translate(-50%, -50%);
+    border-radius: 50% 50% 46% 46%;
+    border: 2px solid rgba(var(--orb-glow), 0.55);
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.45), 0 0 30px rgba(var(--orb-glow), 0.35);
+    pointer-events: none;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  .face-scan-overlay.matched .face-scan-frame {
+    border-color: rgba(80, 255, 160, 0.9);
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.4), 0 0 40px rgba(80, 255, 160, 0.45);
+  }
+  .face-scan-overlay.failed .face-scan-frame {
+    border-color: rgba(255, 90, 90, 0.9);
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.4), 0 0 40px rgba(255, 90, 90, 0.4);
+  }
+  .face-scan-scanline {
+    position: absolute;
+    left: 12%;
+    right: 12%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(var(--orb-glow), 0.95), transparent);
+    box-shadow: 0 0 12px rgba(var(--orb-glow), 0.8);
+    animation: faceScanLine 2.4s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 2;
+  }
+  @keyframes faceScanLine {
+    0%, 100% { top: 18%; opacity: 0.35; }
+    50% { top: 78%; opacity: 1; }
+  }
+  .face-scan-status {
+    padding: 14px 18px 6px;
+    font-size: 0.82rem;
+    color: rgba(255,255,255,0.9);
+    min-height: 28px;
+  }
+  .face-scan-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    padding: 10px 16px 18px;
+    flex-wrap: wrap;
+  }
+  .face-scan-btn {
+    padding: 12px 18px;
+    min-width: 120px;
+    border-radius: 12px;
+    border: 1px solid rgba(var(--orb-glow), 0.45);
+    background: linear-gradient(135deg, rgba(var(--orb-glow), 0.35), rgba(var(--orb-glow), 0.12));
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.72rem;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .face-scan-btn.ghost {
+    background: rgba(255,255,255,0.06);
+    border-color: rgba(255,255,255,0.2);
+  }
+  .face-scan-btn:hover {
+    border-color: rgba(var(--orb-glow), 0.8);
+    box-shadow: 0 0 18px rgba(var(--orb-glow), 0.3);
+  }
+  .face-reg-preview {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(var(--orb-glow), 0.5);
+    box-shadow: 0 0 16px rgba(var(--orb-glow), 0.35);
+    display: none;
+  }
+  .face-reg-preview.has-face { display: block; margin: 0 auto 10px; }
+  .face-reg-status {
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.55);
+    margin-top: 6px;
+    min-height: 16px;
+  }
+  .face-reg-status.ok { color: #66ff99; }
+  .face-reg-status.err { color: #ff8888; }
+
   #airPointerOrb.charging {
     background: radial-gradient(circle at 38% 32%,
       rgba(255,220,220,0.95) 0%,
@@ -2514,7 +2668,28 @@
   </div>
 
 
-  <div class="action-toast" id="actionToast">
+  
+  <!-- Face lock scanner -->
+  <div class="face-scan-overlay" id="faceScanOverlay" aria-hidden="true">
+    <div class="face-scan-box">
+      <div class="face-scan-header">
+        <div class="face-scan-title" id="faceScanTitle">Verificación facial</div>
+        <div class="face-scan-sub" id="faceScanSub">Mira a la cámara para continuar</div>
+      </div>
+      <div class="face-scan-viewport">
+        <video id="faceScanVideo" autoplay playsinline muted></video>
+        <canvas id="faceScanCanvas" aria-hidden="true"></canvas>
+        <div class="face-scan-frame"></div>
+        <div class="face-scan-scanline"></div>
+      </div>
+      <div class="face-scan-status" id="faceScanStatus">Inicializando cámara…</div>
+      <div class="face-scan-actions">
+        <button type="button" class="face-scan-btn ghost" id="faceScanCancel">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+<div class="action-toast" id="actionToast">
     <div class="action-toast-icon" id="actionToastIcon">✨</div>
     <div class="action-toast-text" id="actionToastText"></div>
   </div>
@@ -2649,6 +2824,29 @@
           <div class="settings-label">Nombre del usuario</div>
           <input type="text" class="settings-input" id="userNameInput" placeholder="Pablo" maxlength="20">
         </div>
+
+        <div class="settings-section" id="faceLockSection">
+          <div class="settings-label">Acceso por rostro</div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">Bloqueo facial</div>
+              <div class="toggle-description">Solo el rostro registrado puede abrir el menú de módulos y la configuración. Requiere cámara.</div>
+            </div>
+            <label class="toggle-switch"><input type="checkbox" id="toggleFaceLock"><span class="toggle-slider"></span></label>
+          </div>
+          <img class="face-reg-preview" id="faceRegPreview" alt="Rostro registrado" />
+          <div class="face-reg-status" id="faceRegStatus">Sin rostro registrado</div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+            <button type="button" class="settings-test-button" id="faceRegisterBtn" style="flex:1; min-width:140px;">
+              <i class="fas fa-user-plus"></i> Registrar rostro
+            </button>
+            <button type="button" class="settings-danger-button" id="faceClearBtn" style="flex:1; min-width:120px; padding:11px;">
+              Eliminar rostro
+            </button>
+          </div>
+          <div class="settings-hint">Registra tu rostro con buena luz. El nombre de usuario de arriba se usará en el saludo de bienvenida. Si el bloqueo está apagado, cualquiera puede usar menú y ajustes.</div>
+        </div>
+
         <div class="settings-section">
           <div class="settings-label">Auto-descanso</div>
           <div class="slider-container">
@@ -2798,6 +2996,9 @@
   // ============================================================
   const DEFAULT_SETTINGS = {
     USER_NAME: 'Pablo',
+    FACE_LOCK_ENABLED: false,
+    FACE_TEMPLATE: null,
+    FACE_THUMB: null,
     THEME: 'theme-gold',
     DEFAULT_CITY: 'Madrid',
     CITY_AUTO: false,
@@ -2834,6 +3035,12 @@
   if (settings.REST_PHRASES.length === 1 && settings.REST_PHRASES[0] === 'El control interno es responsabilidad de todos') {
     settings.REST_PHRASES = [];
     try { localStorage.setItem('meta-hud-settings', JSON.stringify(settings)); } catch (e) {}
+  }
+  if (typeof settings.FACE_LOCK_ENABLED !== 'boolean') {
+    settings.FACE_LOCK_ENABLED = false;
+  }
+  if (settings.FACE_TEMPLATE && !Array.isArray(settings.FACE_TEMPLATE)) {
+    settings.FACE_TEMPLATE = null;
   }
   if (typeof settings.MIC_ENABLED !== 'boolean') {
     settings.MIC_ENABLED = true;
@@ -2923,6 +3130,8 @@
       const settingsForCloud = { ...settings };
       delete settingsForCloud.MIC_ENABLED;
       delete settingsForCloud.HAND_GESTURE_ENABLED;
+      delete settingsForCloud.FACE_TEMPLATE;
+      delete settingsForCloud.FACE_THUMB;
       delete settingsForCloud.AIR_DWELL_SEC_PC;
       delete settingsForCloud.AIR_DWELL_SEC_MOBILE;
       // Fotos de descanso: fuente de verdad en Supabase (settings.REST_IMAGES)
@@ -3325,6 +3534,7 @@
   }
 
   function enterRestMode(silent = false) {
+    try { clearFaceSession(); } catch (e) {}
     if (!attentionActive && document.getElementById('restDashboard')?.classList.contains('visible')) {
       return; // ya en descanso
     }
@@ -5062,6 +5272,13 @@
     if (/(abre|abrir|muestra|mostrar|pon|sacar)\s+(el\s+)?(menu|secciones|modulos|anillo)/.test(act) ||
         /^(menu|secciones|modulos)$/.test(act) ||
         /\b(abre|abrir)\s+menu\b/.test(act)) {
+      if (requireFaceAuth()) {
+        speak('Necesito verificar tu rostro.');
+        requestFaceUnlock('menu').then((ok) => {
+          if (ok) { showMenu(); speak('Abro el menú.'); }
+        });
+        return;
+      }
       showMenu();
       speak(`Abro el menú.`);
       return;
@@ -5082,20 +5299,33 @@
     for (const [id, kws] of Object.entries(moduleMap)) {
       for (const kw of kws) {
         if (act.includes(kw) && /(abre|abrir|muestra)/.test(act)) {
-          if (!menuVisible) showMenu();
-          setTimeout(() => {
-            previewModule = null;
-            document.querySelectorAll('.ring-seg-group').forEach(g => g.classList.remove('preview'));
-            toggleModule(id, true);
-          }, 400);
-          const m = SECTIONS[id];
-          speak(`Abro ${m ? m.title : id}.`);
+          const openMod = () => {
+            if (!menuVisible) showMenu();
+            setTimeout(() => {
+              previewModule = null;
+              document.querySelectorAll('.ring-seg-group').forEach(g => g.classList.remove('preview'));
+              toggleModule(id, true);
+            }, 400);
+            const m = SECTIONS[id];
+            speak(`Abro ${m ? m.title : id}.`);
+          };
+          if (requireFaceAuth()) {
+            speak('Necesito verificar tu rostro.');
+            requestFaceUnlock('menu').then((ok) => { if (ok) openMod(); });
+            return;
+          }
+          openMod();
           return;
         }
       }
     }
     const appMatch = findAppByVoice(act);
     if (appMatch) {
+      if (requireFaceAuth()) {
+        speak('Necesito verificar tu rostro.');
+        requestFaceUnlock('menu').then((ok) => { if (ok) openAppByVoice(appMatch); });
+        return;
+      }
       openAppByVoice(appMatch);
       return;
     }
@@ -5811,12 +6041,19 @@
   window.addEventListener('resize', resizeOrbViz);
   drawOrbViz();
 
-  orbContainer.addEventListener('click', () => {
+  orbContainer.addEventListener('click', async () => {
     orbContainer.classList.add('clicked');
     setTimeout(() => orbContainer.classList.remove('clicked'), 600);
     if (!attentionActive) { wakeUp(); }
-    if (menuVisible) hideMenu();
-    else showMenu();
+    if (menuVisible) {
+      hideMenu();
+      return;
+    }
+    if (requireFaceAuth()) {
+      const ok = await requestFaceUnlock('menu');
+      if (!ok) return;
+    }
+    showMenu();
   });
 
   orbContainer.addEventListener('mousemove', (e) => {
@@ -5843,17 +6080,25 @@
     });
   });
 
-  settingsButton.addEventListener('click', () => {
-    const o = settingsPanel.classList.toggle('visible');
-    settingsButton.classList.toggle('open', o);
-    if (o) {
-      populateVoiceSelect();
-      updateInfoPanel();
-      renderRestPhrases();
-      if (typeof renderRestImageThumbs === 'function') renderRestImageThumbs();
-      if (typeof updateRestImageTimingInputs === 'function') updateRestImageTimingInputs();
-      if (typeof updateHandGestureUI === 'function') updateHandGestureUI();
+  settingsButton.addEventListener('click', async () => {
+    if (settingsPanel.classList.contains('visible')) {
+      settingsPanel.classList.remove('visible');
+      settingsButton.classList.remove('open');
+      return;
     }
+    if (requireFaceAuth()) {
+      const ok = await requestFaceUnlock('settings');
+      if (!ok) return;
+    }
+    settingsPanel.classList.add('visible');
+    settingsButton.classList.add('open');
+    populateVoiceSelect();
+    updateInfoPanel();
+    renderRestPhrases();
+    if (typeof renderRestImageThumbs === 'function') renderRestImageThumbs();
+    if (typeof updateRestImageTimingInputs === 'function') updateRestImageTimingInputs();
+    if (typeof updateHandGestureUI === 'function') updateHandGestureUI();
+    updateFaceRegUI();
   });
 
   document.addEventListener('click', (e) => {
@@ -6186,6 +6431,337 @@
       infoTheme.textContent = t[settings.THEME] || 'Azul';
     }
   }
+
+
+  // ============================================================
+  // FACE LOCK — registro y verificación (MediaPipe Face Landmarker)
+  // ============================================================
+  const FACE_MP_VISION = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18';
+  const FACE_MP_WASM = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm';
+  const FACE_MODEL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
+  const FACE_MATCH_THRESHOLD = 0.12; // distancia euclídea normalizada (menor = más parecido)
+  const FACE_KEY_IDX = [1, 33, 61, 199, 263, 291, 133, 362, 70, 300, 4, 152, 234, 454];
+
+  let faceLandmarker = null;
+  let faceStream = null;
+  let faceRaf = null;
+  let faceScanMode = null; // 'register' | 'unlock'
+  let faceScanResolve = null;
+  let faceScanReject = null;
+  let faceSessionAuthed = false;
+  let facePendingAction = null; // 'menu' | 'settings'
+  let faceMatchStreak = 0;
+  let faceFailStreak = 0;
+
+  function isFaceLockActive() {
+    return !!(settings.FACE_LOCK_ENABLED && settings.FACE_TEMPLATE && Array.isArray(settings.FACE_TEMPLATE) && settings.FACE_TEMPLATE.length > 8);
+  }
+
+  function requireFaceAuth() {
+    return isFaceLockActive() && !faceSessionAuthed;
+  }
+
+  function clearFaceSession() {
+    faceSessionAuthed = false;
+  }
+
+  function updateFaceRegUI() {
+    const preview = document.getElementById('faceRegPreview');
+    const status = document.getElementById('faceRegStatus');
+    const toggle = document.getElementById('toggleFaceLock');
+    if (toggle) toggle.checked = !!settings.FACE_LOCK_ENABLED;
+    if (preview) {
+      if (settings.FACE_THUMB) {
+        preview.src = settings.FACE_THUMB;
+        preview.classList.add('has-face');
+      } else {
+        preview.removeAttribute('src');
+        preview.classList.remove('has-face');
+      }
+    }
+    if (status) {
+      if (settings.FACE_TEMPLATE && settings.FACE_TEMPLATE.length) {
+        status.textContent = settings.FACE_LOCK_ENABLED
+          ? 'Rostro registrado · bloqueo activo'
+          : 'Rostro registrado · bloqueo desactivado';
+        status.className = 'face-reg-status ok';
+      } else {
+        status.textContent = 'Sin rostro registrado';
+        status.className = 'face-reg-status';
+      }
+    }
+  }
+
+  async function ensureFaceLandmarker() {
+    if (faceLandmarker) return faceLandmarker;
+    const { FaceLandmarker, FilesetResolver } = await import(FACE_MP_VISION);
+    const vision = await FilesetResolver.forVisionTasks(FACE_MP_WASM);
+    faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+      baseOptions: { modelAssetPath: FACE_MODEL, delegate: 'GPU' },
+      runningMode: 'VIDEO',
+      numFaces: 1,
+      minFaceDetectionConfidence: 0.5,
+      minFacePresenceConfidence: 0.5,
+      minTrackingConfidence: 0.5
+    });
+    return faceLandmarker;
+  }
+
+  function faceExtractFeatures(landmarks) {
+    if (!landmarks || landmarks.length < 100) return null;
+    const pts = FACE_KEY_IDX.map(i => {
+      const p = landmarks[i] || landmarks[Math.min(i, landmarks.length - 1)];
+      return { x: p.x, y: p.y, z: p.z || 0 };
+    });
+    // inter-ocular: 33 (left eye outer-ish) and 263 (right)
+    const lx = landmarks[33]?.x ?? pts[1].x;
+    const ly = landmarks[33]?.y ?? pts[1].y;
+    const rx = landmarks[263]?.x ?? pts[4].x;
+    const ry = landmarks[263]?.y ?? pts[4].y;
+    const scale = Math.hypot(rx - lx, ry - ly) || 1e-6;
+    const cx = (lx + rx) / 2;
+    const cy = (ly + ry) / 2;
+    const feat = [];
+    for (const p of pts) {
+      feat.push((p.x - cx) / scale);
+      feat.push((p.y - cy) / scale);
+      feat.push((p.z || 0) / scale);
+    }
+    // extra ratios
+    const nose = landmarks[1] || landmarks[4];
+    const chin = landmarks[152] || landmarks[175] || landmarks[landmarks.length - 1];
+    if (nose && chin) {
+      feat.push((chin.y - nose.y) / scale);
+      feat.push((chin.x - nose.x) / scale);
+    }
+    return feat;
+  }
+
+  function faceDistance(a, b) {
+    if (!a || !b || a.length !== b.length) return 99;
+    let s = 0;
+    for (let i = 0; i < a.length; i++) {
+      const d = a[i] - b[i];
+      s += d * d;
+    }
+    return Math.sqrt(s / a.length);
+  }
+
+  function faceCaptureThumb(video) {
+    try {
+      const c = document.createElement('canvas');
+      const size = 96;
+      c.width = size; c.height = size;
+      const ctx = c.getContext('2d');
+      const vw = video.videoWidth, vh = video.videoHeight;
+      if (!vw || !vh) return null;
+      const side = Math.min(vw, vh);
+      const sx = (vw - side) / 2, sy = (vh - side) / 2;
+      ctx.translate(size, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, sx, sy, side, side, 0, 0, size, size);
+      return c.toDataURL('image/jpeg', 0.72);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function stopFaceScanStream() {
+    if (faceRaf) { cancelAnimationFrame(faceRaf); faceRaf = null; }
+    if (faceStream) {
+      try { faceStream.getTracks().forEach(t => t.stop()); } catch (e) {}
+      faceStream = null;
+    }
+    const video = document.getElementById('faceScanVideo');
+    if (video) {
+      try { video.srcObject = null; } catch (e) {}
+    }
+  }
+
+  function closeFaceScanOverlay(result) {
+    const ov = document.getElementById('faceScanOverlay');
+    if (ov) {
+      ov.classList.remove('visible', 'matched', 'failed');
+      ov.setAttribute('aria-hidden', 'true');
+    }
+    stopFaceScanStream();
+    const resolve = faceScanResolve;
+    faceScanResolve = null;
+    faceScanReject = null;
+    faceScanMode = null;
+    faceMatchStreak = 0;
+    faceFailStreak = 0;
+    if (resolve) resolve(result);
+  }
+
+  function openFaceScanOverlay(mode) {
+    return new Promise(async (resolve, reject) => {
+      faceScanMode = mode;
+      faceScanResolve = resolve;
+      faceScanReject = reject;
+      faceMatchStreak = 0;
+      faceFailStreak = 0;
+      const ov = document.getElementById('faceScanOverlay');
+      const title = document.getElementById('faceScanTitle');
+      const sub = document.getElementById('faceScanSub');
+      const status = document.getElementById('faceScanStatus');
+      if (!ov) { resolve({ ok: false, reason: 'no-ui' }); return; }
+      ov.classList.remove('matched', 'failed');
+      ov.classList.add('visible');
+      ov.setAttribute('aria-hidden', 'false');
+      if (title) title.textContent = mode === 'register' ? 'Registro facial' : 'Verificación facial';
+      if (sub) sub.textContent = mode === 'register'
+        ? 'Centra tu rostro y mantén la mirada a la cámara'
+        : 'Mira a la cámara para desbloquear META';
+      if (status) status.textContent = 'Inicializando cámara…';
+
+      try {
+        await ensureFaceLandmarker();
+        faceStream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+          audio: false
+        });
+        const video = document.getElementById('faceScanVideo');
+        const canvas = document.getElementById('faceScanCanvas');
+        video.srcObject = faceStream;
+        await new Promise((res) => {
+          if (video.readyState >= 2) return res();
+          video.onloadedmetadata = () => res();
+        });
+        await video.play();
+        if (status) status.textContent = mode === 'register' ? 'Detectando rostro…' : 'Buscando coincidencia…';
+        let lastTs = -1;
+        const samples = [];
+
+        const loop = () => {
+          faceRaf = requestAnimationFrame(loop);
+          if (!faceLandmarker || !video || video.readyState < 2) return;
+          const now = performance.now();
+          if (video.currentTime === lastTs) return;
+          lastTs = video.currentTime;
+          let result;
+          try { result = faceLandmarker.detectForVideo(video, now); }
+          catch (e) { return; }
+          const faces = result.faceLandmarks || [];
+          const cctx = canvas?.getContext?.('2d');
+          if (canvas && cctx) {
+            if (canvas.width !== video.videoWidth) canvas.width = video.videoWidth || 640;
+            if (canvas.height !== video.videoHeight) canvas.height = video.videoHeight || 480;
+            cctx.clearRect(0, 0, canvas.width, canvas.height);
+          }
+          if (!faces.length) {
+            faceMatchStreak = 0;
+            if (status) status.textContent = 'No se detecta un rostro. Acércate un poco.';
+            ov.classList.remove('matched', 'failed');
+            return;
+          }
+          const lm = faces[0];
+          if (cctx && canvas) {
+            cctx.strokeStyle = 'rgba(0, 212, 255, 0.7)';
+            cctx.lineWidth = 2;
+            // draw a few key points
+            cctx.beginPath();
+            for (const idx of FACE_KEY_IDX) {
+              const p = lm[idx];
+              if (!p) continue;
+              cctx.moveTo(p.x * canvas.width + 3, p.y * canvas.height);
+              cctx.arc(p.x * canvas.width, p.y * canvas.height, 3, 0, Math.PI * 2);
+            }
+            cctx.stroke();
+          }
+          const feat = faceExtractFeatures(lm);
+          if (!feat) return;
+
+          if (mode === 'register') {
+            samples.push(feat);
+            if (status) status.textContent = `Capturando… ${Math.min(samples.length, 12)}/12`;
+            if (samples.length >= 12) {
+              // average features
+              const avg = samples[0].map((_, i) => samples.reduce((s, f) => s + f[i], 0) / samples.length);
+              const thumb = faceCaptureThumb(video);
+              settings.FACE_TEMPLATE = avg;
+              settings.FACE_THUMB = thumb;
+              settings.FACE_LOCK_ENABLED = true;
+              saveSettings();
+              updateFaceRegUI();
+              ov.classList.add('matched');
+              if (status) status.textContent = 'Rostro registrado correctamente';
+              try { speak(`Rostro registrado. Hola ${settings.USER_NAME}.`); } catch (e) {}
+              setTimeout(() => closeFaceScanOverlay({ ok: true, mode: 'register' }), 900);
+            }
+            return;
+          }
+
+          // unlock mode
+          const dist = faceDistance(feat, settings.FACE_TEMPLATE);
+          if (dist <= FACE_MATCH_THRESHOLD) {
+            faceMatchStreak++;
+            faceFailStreak = 0;
+            ov.classList.add('matched');
+            ov.classList.remove('failed');
+            if (status) status.textContent = 'Rostro reconocido…';
+            if (faceMatchStreak >= 4) {
+              faceSessionAuthed = true;
+              const name = settings.USER_NAME || 'usuario';
+              if (status) status.textContent = `Bienvenido, ${name}`;
+              try { speak(`Bienvenido ${name}.`); } catch (e) {}
+              setTimeout(() => closeFaceScanOverlay({ ok: true, mode: 'unlock', name }), 700);
+            }
+          } else {
+            faceMatchStreak = 0;
+            faceFailStreak++;
+            ov.classList.remove('matched');
+            if (faceFailStreak > 8) {
+              ov.classList.add('failed');
+              if (status) status.textContent = 'Rostro no autorizado';
+            } else if (status) {
+              status.textContent = 'Verificando… centra tu rostro';
+            }
+          }
+        };
+        loop();
+      } catch (e) {
+        console.warn('Face scan failed', e);
+        if (status) status.textContent = 'No se pudo acceder a la cámara';
+        setTimeout(() => closeFaceScanOverlay({ ok: false, reason: 'camera' }), 1200);
+      }
+    });
+  }
+
+  async function requestFaceUnlock(action) {
+    if (!requireFaceAuth()) return true;
+    facePendingAction = action;
+    const res = await openFaceScanOverlay('unlock');
+    facePendingAction = null;
+    return !!(res && res.ok);
+  }
+
+  async function guardedShowMenu() {
+    if (requireFaceAuth()) {
+      const ok = await requestFaceUnlock('menu');
+      if (!ok) return;
+    }
+    showMenu();
+  }
+
+  async function guardedOpenSettings() {
+    if (requireFaceAuth()) {
+      const ok = await requestFaceUnlock('settings');
+      if (!ok) return;
+    }
+    const o = settingsPanel.classList.toggle('visible');
+    settingsButton.classList.toggle('open', o);
+    if (o) {
+      populateVoiceSelect();
+      updateInfoPanel();
+      renderRestPhrases();
+      if (typeof renderRestImageThumbs === 'function') renderRestImageThumbs();
+      if (typeof updateRestImageTimingInputs === 'function') updateRestImageTimingInputs();
+      if (typeof updateHandGestureUI === 'function') updateHandGestureUI();
+      updateFaceRegUI();
+    }
+  }
+
 
   // ============================================================
   // AIR GESTURE — yemas pulgar/índice · clic por movimiento del pulgar
@@ -6776,9 +7352,20 @@
     // --- Orbe central ---
     if (airClosest(el, '.orb-container') || airClosest(el, '#orbContainer')) {
       if (!attentionActive) wakeUp();
-      if (menuVisible) hideMenu();
-      else showMenu();
-      airSetStatus(menuVisible ? 'Menú abierto' : 'Menú cerrado', false);
+      if (menuVisible) {
+        hideMenu();
+        airSetStatus('Menú cerrado', false);
+        unlock();
+        return;
+      }
+      if (requireFaceAuth()) {
+        airSetStatus('Verificación facial…', false);
+        unlock();
+        requestFaceUnlock('menu').then((ok) => { if (ok) showMenu(); });
+        return;
+      }
+      showMenu();
+      airSetStatus('Menú abierto', false);
       unlock();
       return;
     }
@@ -7113,6 +7700,41 @@
   document.getElementById('airDwellSecMobile')?.addEventListener('blur', () => commitAirDwellInput('mobile'));
 
 
+
+  document.getElementById('faceScanCancel')?.addEventListener('click', () => {
+    closeFaceScanOverlay({ ok: false, reason: 'cancel' });
+  });
+  document.getElementById('toggleFaceLock')?.addEventListener('change', (e) => {
+    if (e.target.checked && !(settings.FACE_TEMPLATE && settings.FACE_TEMPLATE.length)) {
+      e.target.checked = false;
+      const st = document.getElementById('faceRegStatus');
+      if (st) { st.textContent = 'Primero registra un rostro'; st.className = 'face-reg-status err'; }
+      return;
+    }
+    settings.FACE_LOCK_ENABLED = !!e.target.checked;
+    if (!settings.FACE_LOCK_ENABLED) faceSessionAuthed = true;
+    else faceSessionAuthed = false;
+    saveSettings();
+    updateFaceRegUI();
+  });
+  document.getElementById('faceRegisterBtn')?.addEventListener('click', async () => {
+    // Allow registration even when lock is on if already in settings (authed or lock off)
+    const res = await openFaceScanOverlay('register');
+    if (res && res.ok) {
+      faceSessionAuthed = true;
+      updateFaceRegUI();
+    }
+  });
+  document.getElementById('faceClearBtn')?.addEventListener('click', () => {
+    if (!confirm('¿Eliminar el rostro registrado y desactivar el bloqueo facial?')) return;
+    settings.FACE_TEMPLATE = null;
+    settings.FACE_THUMB = null;
+    settings.FACE_LOCK_ENABLED = false;
+    faceSessionAuthed = false;
+    saveSettings();
+    updateFaceRegUI();
+  });
+
   async function boot() {
     // Sincronizar con Supabase antes de pintar la UI (fuente de verdad multi-dispositivo)
     try {
@@ -7218,6 +7840,7 @@
     }
     updateMicToggleUI();
     updateHandGestureUI();
+    updateFaceRegUI();
     if (typeof updateAirDwellInputsUI === 'function') updateAirDwellInputsUI();
 
     if (settings.HAND_GESTURE_ENABLED) {
