@@ -3134,6 +3134,24 @@
     createdAt: p.createdAt || new Date().toISOString()
   })).filter(p => p.descriptor.length === 128);
   // Compat: FACE_TEMPLATE = primer perfil (para código legado)
+  // Deduplicar por descriptor (por si hubo altas repetidas en versiones anteriores)
+  try {
+    const kept = [];
+    for (const p of settings.FACE_PROFILES) {
+      if (!p || !Array.isArray(p.descriptor) || p.descriptor.length !== 128) continue;
+      let isDup = false;
+      for (const k of kept) {
+        let sum = 0;
+        for (let i = 0; i < 128; i++) {
+          const d = (k.descriptor[i] || 0) - (p.descriptor[i] || 0);
+          sum += d * d;
+        }
+        if (Math.sqrt(sum) <= 0.48) { isDup = true; break; }
+      }
+      if (!isDup) kept.push(p);
+    }
+    settings.FACE_PROFILES = kept;
+  } catch (e) {}
   if (settings.FACE_PROFILES.length) {
     settings.FACE_TEMPLATE = settings.FACE_PROFILES[0].descriptor;
     settings.FACE_THUMB = settings.FACE_PROFILES[0].thumb;
@@ -3342,9 +3360,13 @@
         const has = isValidFaceTemplate(settingsForCloud.FACE_TEMPLATE);
         console.log('☁️ Cloud push OK — face:', has, 'lock:', !!settingsForCloud.FACE_LOCK_ENABLED);
       } catch (e) {}
-      if (faceCleared) {
-        try { delete settings._faceClearedIntentionally; } catch (e) {}
-      }
+      // Mantener autoridad local un poco más para ignorar echoes de realtime
+      setTimeout(() => {
+        try {
+          delete settings._faceClearedIntentionally;
+          delete settings._faceListAuthoritative;
+        } catch (e) {}
+      }, 5000);
       return true;
     } catch (e) {
       console.warn('Supabase push exception', e);
@@ -3363,6 +3385,17 @@
         const localHand = settings.HAND_GESTURE_ENABLED;
         const localDwellPc = settings.AIR_DWELL_SEC_PC;
         const localDwellMob = settings.AIR_DWELL_SEC_MOBILE;
+        // Preservar rostros locales si hay escritura reciente (borrar/añadir)
+        const skipFaceRemote = (typeof faceLocalWriteUntil === 'number' && Date.now() < faceLocalWriteUntil)
+          || !!settings._faceListAuthoritative
+          || !!settings._faceClearedIntentionally;
+        const localFaceProfiles = Array.isArray(settings.FACE_PROFILES)
+          ? JSON.parse(JSON.stringify(settings.FACE_PROFILES))
+          : [];
+        const localFaceLock = settings.FACE_LOCK_ENABLED;
+        const localFaceTpl = settings.FACE_TEMPLATE;
+        const localFaceThumb = settings.FACE_THUMB;
+
         Object.assign(settings, row.settings);
         // Micrófono, gestos y tiempos de clic son locales por dispositivo
         settings.MIC_ENABLED = typeof localMic === 'boolean' ? localMic : true;
@@ -3370,45 +3403,56 @@
         settings.AIR_DWELL_SEC_PC = normalizeAirDwellSec(localDwellPc, 1.5);
         settings.AIR_DWELL_SEC_MOBILE = normalizeAirDwellSec(localDwellMob, 2.5);
 
-        // Normalizar perfiles faciales remotos
-        if (!Array.isArray(settings.FACE_PROFILES)) settings.FACE_PROFILES = [];
-        settings.FACE_PROFILES = settings.FACE_PROFILES.filter(p =>
-          p && Array.isArray(p.descriptor) && p.descriptor.length === 128
-        ).map(p => ({
-          id: p.id || ('face-' + Math.random().toString(36).slice(2, 9)),
-          name: (p.name || 'Usuario').toString().slice(0, 40),
-          descriptor: p.descriptor.map(Number).filter(n => Number.isFinite(n)),
-          thumb: typeof p.thumb === 'string' ? p.thumb : null,
-          createdAt: p.createdAt || new Date().toISOString()
-        })).filter(p => p.descriptor.length === 128);
-        // Migrar FACE_TEMPLATE único remoto → perfiles
-        if (!settings.FACE_PROFILES.length && Array.isArray(settings.FACE_TEMPLATE) && settings.FACE_TEMPLATE.length === 128) {
-          settings.FACE_PROFILES.push({
-            id: 'legacy-remote',
-            name: settings.USER_NAME || 'Usuario',
-            descriptor: settings.FACE_TEMPLATE.map(Number),
-            thumb: typeof settings.FACE_THUMB === 'string' ? settings.FACE_THUMB : null,
-            createdAt: new Date().toISOString()
-          });
+        if (skipFaceRemote) {
+          // Mantener lista local (p. ej. tras eliminar un rostro)
+          settings.FACE_PROFILES = localFaceProfiles;
+          settings.FACE_LOCK_ENABLED = localFaceLock;
+          settings.FACE_TEMPLATE = localFaceTpl;
+          settings.FACE_THUMB = localFaceThumb;
+          try { console.log('☁️ Skip remote face apply (local write). profiles:', localFaceProfiles.length); } catch (e) {}
+        } else {
+          // Normalizar perfiles faciales remotos
+          if (!Array.isArray(settings.FACE_PROFILES)) settings.FACE_PROFILES = [];
+          settings.FACE_PROFILES = settings.FACE_PROFILES.filter(p =>
+            p && Array.isArray(p.descriptor) && p.descriptor.length === 128
+          ).map(p => ({
+            id: p.id || ('face-' + Math.random().toString(36).slice(2, 9)),
+            name: (p.name || 'Usuario').toString().slice(0, 40),
+            descriptor: p.descriptor.map(Number).filter(n => Number.isFinite(n)),
+            thumb: typeof p.thumb === 'string' ? p.thumb : null,
+            createdAt: p.createdAt || new Date().toISOString()
+          })).filter(p => p.descriptor.length === 128);
+          // Deduplicar por similitud facial
+          if (typeof dedupeFaceProfilesInPlace === 'function') dedupeFaceProfilesInPlace();
+          // Migrar FACE_TEMPLATE único remoto → perfiles
+          if (!settings.FACE_PROFILES.length && Array.isArray(settings.FACE_TEMPLATE) && settings.FACE_TEMPLATE.length === 128) {
+            settings.FACE_PROFILES.push({
+              id: 'legacy-remote',
+              name: settings.USER_NAME || 'Usuario',
+              descriptor: settings.FACE_TEMPLATE.map(Number),
+              thumb: typeof settings.FACE_THUMB === 'string' ? settings.FACE_THUMB : null,
+              createdAt: new Date().toISOString()
+            });
+          }
+          if (!settings.FACE_PROFILES.length && Array.isArray(row.face_template) && row.face_template.length === 128) {
+            settings.FACE_PROFILES.push({
+              id: 'legacy-col',
+              name: settings.USER_NAME || 'Usuario',
+              descriptor: row.face_template.map(Number),
+              thumb: typeof row.face_thumb === 'string' ? row.face_thumb : null,
+              createdAt: new Date().toISOString()
+            });
+          }
+          if (typeof settings.FACE_LOCK_ENABLED !== 'boolean') {
+            settings.FACE_LOCK_ENABLED = typeof row.face_lock_enabled === 'boolean'
+              ? row.face_lock_enabled
+              : false;
+          }
+          if (!settings.FACE_PROFILES.length) settings.FACE_LOCK_ENABLED = false;
+          if (typeof syncLegacyFaceFields === 'function') syncLegacyFaceFields();
+          try { console.log('☁️ Cloud pull faces:', settings.FACE_PROFILES.length, 'lock:', !!settings.FACE_LOCK_ENABLED); } catch (e) {}
         }
-        if (!settings.FACE_PROFILES.length && Array.isArray(row.face_template) && row.face_template.length === 128) {
-          settings.FACE_PROFILES.push({
-            id: 'legacy-col',
-            name: settings.USER_NAME || 'Usuario',
-            descriptor: row.face_template.map(Number),
-            thumb: typeof row.face_thumb === 'string' ? row.face_thumb : null,
-            createdAt: new Date().toISOString()
-          });
-        }
-        if (typeof settings.FACE_LOCK_ENABLED !== 'boolean') {
-          settings.FACE_LOCK_ENABLED = typeof row.face_lock_enabled === 'boolean'
-            ? row.face_lock_enabled
-            : false;
-        }
-        if (!settings.FACE_PROFILES.length) settings.FACE_LOCK_ENABLED = false;
-        if (typeof syncLegacyFaceFields === 'function') syncLegacyFaceFields();
         try { if (typeof clearFaceSession === 'function') clearFaceSession(); } catch (e) {}
-        try { console.log('☁️ Cloud pull faces:', settings.FACE_PROFILES.length, 'lock:', !!settings.FACE_LOCK_ENABLED); } catch (e) {}
 
         if (!Array.isArray(settings.REST_PHRASES)) settings.REST_PHRASES = [];
         settings.REST_IMAGE_INTERVAL_MS = normalizeRestImageMs(settings.REST_IMAGE_INTERVAL_MS, 300000, 5000);
@@ -6818,6 +6862,34 @@
     }
   }
 
+  /** Evita que un pull remoto restaure rostros recién borrados/añadidos */
+  let faceLocalWriteUntil = 0;
+  function markFaceLocalWrite(ms = 8000) {
+    faceLocalWriteUntil = Date.now() + ms;
+    settings._faceListAuthoritative = true;
+  }
+
+  function dedupeFaceProfilesInPlace() {
+    if (!Array.isArray(settings.FACE_PROFILES)) {
+      settings.FACE_PROFILES = [];
+      return;
+    }
+    const kept = [];
+    for (const p of settings.FACE_PROFILES) {
+      if (!p || !isValidFaceTemplate(p.descriptor)) continue;
+      const dup = kept.find(k => faceDescriptorDistance(k.descriptor, p.descriptor) <= FACE_MATCH_THRESHOLD);
+      if (dup) continue; // mismo rostro → conservar solo el primero
+      kept.push({
+        id: p.id || ('face-' + Math.random().toString(36).slice(2, 9)),
+        name: (p.name || 'Usuario').toString().slice(0, 40),
+        descriptor: p.descriptor.map(Number),
+        thumb: typeof p.thumb === 'string' ? p.thumb : null,
+        createdAt: p.createdAt || new Date().toISOString()
+      });
+    }
+    settings.FACE_PROFILES = kept;
+  }
+
   function removeFaceProfile(id) {
     if (!id) return;
     const p = getFaceProfiles().find(x => x.id === id);
@@ -6829,13 +6901,23 @@
       settings._faceClearedIntentionally = true;
       faceSessionAuthed = false;
     }
+    markFaceLocalWrite();
     syncLegacyFaceFields();
     saveSettings();
     updateFaceRegUI();
-    pushCloudState().then(ok => {
-      console.log('☁️ Face remove push:', ok);
-      try { delete settings._faceClearedIntentionally; } catch (e) {}
-    });
+    // Push inmediato y esperar: la lista local es la verdad
+    (async () => {
+      try {
+        const ok = await pushCloudState();
+        console.log('☁️ Face remove push:', ok, 'quedan:', getFaceProfiles().length);
+        if (!ok) {
+          const st = document.getElementById('faceRegStatus');
+          if (st) { st.textContent = 'Eliminado en este dispositivo · error al sincronizar nube'; st.className = 'face-reg-status err'; }
+        }
+      } catch (e) {
+        console.warn('Face remove push failed', e);
+      }
+    })();
   }
 
   function clearAllFaceProfiles() {
@@ -6846,16 +6928,32 @@
     settings.FACE_LOCK_ENABLED = false;
     settings._faceClearedIntentionally = true;
     faceSessionAuthed = false;
+    markFaceLocalWrite();
     saveSettings();
     updateFaceRegUI();
-    pushCloudState().then(ok => {
-      console.log('☁️ Face clear-all push:', ok);
-      try { delete settings._faceClearedIntentionally; } catch (e) {}
-    });
+    (async () => {
+      try {
+        const ok = await pushCloudState();
+        console.log('☁️ Face clear-all push:', ok);
+      } catch (e) {
+        console.warn('Face clear-all push failed', e);
+      }
+    })();
   }
 
+  /** @returns {{ ok: true, profile } | { ok: false, reason, existingName? }} */
   function addFaceProfile(name, descriptor, thumb) {
-    if (!isValidFaceTemplate(descriptor)) return null;
+    if (!isValidFaceTemplate(descriptor)) return { ok: false, reason: 'invalid' };
+    // ¿Este rostro ya está registrado?
+    const existing = findBestFaceMatch(descriptor);
+    if (existing && existing.matched) {
+      return {
+        ok: false,
+        reason: 'duplicate',
+        existingName: existing.profile.name,
+        dist: existing.dist
+      };
+    }
     const profile = {
       id: 'face-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7),
       name: (name || settings.USER_NAME || 'Usuario').toString().trim().slice(0, 40) || 'Usuario',
@@ -6865,10 +6963,13 @@
     };
     if (!Array.isArray(settings.FACE_PROFILES)) settings.FACE_PROFILES = [];
     settings.FACE_PROFILES.push(profile);
+    dedupeFaceProfilesInPlace();
     settings.FACE_LOCK_ENABLED = true;
     try { delete settings._faceClearedIntentionally; } catch (e) {}
+    markFaceLocalWrite();
     syncLegacyFaceFields();
-    return profile;
+    const saved = getFaceProfiles().find(p => p.id === profile.id) || profile;
+    return { ok: true, profile: saved };
   }
 
   async function ensureFaceApi() {
@@ -7012,9 +7113,12 @@
 
         const samples = [];
         let lastDetectAt = 0;
+        let registerFinished = false;
+        let unlockFinished = false;
 
         const loop = async () => {
           if (!faceScanResolve) return;
+          if (registerFinished || unlockFinished) return;
           faceRaf = requestAnimationFrame(() => { loop(); });
           const now = performance.now();
           if (now - lastDetectAt < 180) return;
@@ -7047,16 +7151,49 @@
             }
 
             if (mode === 'register') {
+              if (registerFinished) return;
               samples.push(desc);
               if (status) status.textContent = `Capturando muestras… ${Math.min(samples.length, FACE_REGISTER_SAMPLES)}/${FACE_REGISTER_SAMPLES}`;
               if (samples.length >= FACE_REGISTER_SAMPLES) {
+                registerFinished = true; // evita altas múltiples por el bucle async
+                if (faceRaf) { cancelAnimationFrame(faceRaf); faceRaf = null; }
+
                 const avg = new Array(128).fill(0);
                 for (const s of samples) {
                   for (let i = 0; i < 128; i++) avg[i] += s[i];
                 }
                 for (let i = 0; i < 128; i++) avg[i] /= samples.length;
+
+                // Rechazar si este rostro ya está en la lista
+                const existing = findBestFaceMatch(avg);
+                if (existing && existing.matched) {
+                  ov.classList.add('failed');
+                  ov.classList.remove('matched');
+                  if (status) {
+                    status.textContent = `✗ Este rostro ya está registrado como «${existing.profile.name}»`;
+                  }
+                  try { speak(`Este rostro ya está registrado como ${existing.profile.name}.`); } catch (e) {}
+                  setTimeout(() => closeFaceScanOverlay({
+                    ok: false,
+                    reason: 'duplicate',
+                    existingName: existing.profile.name
+                  }), 1600);
+                  return;
+                }
+
                 const thumb = faceCaptureThumb(video);
-                const profile = addFaceProfile(regName, avg, thumb);
+                const added = addFaceProfile(regName, avg, thumb);
+                if (!added || !added.ok) {
+                  ov.classList.add('failed');
+                  if (status) {
+                    status.textContent = added && added.reason === 'duplicate'
+                      ? `✗ Este rostro ya está registrado como «${added.existingName}»`
+                      : 'No se pudo registrar el rostro';
+                  }
+                  setTimeout(() => closeFaceScanOverlay({ ok: false, reason: added?.reason || 'fail' }), 1400);
+                  return;
+                }
+                const profile = added.profile;
                 saveSettings();
                 updateFaceRegUI();
                 ov.classList.add('matched');
@@ -7069,9 +7206,11 @@
                     const ok = await pushCloudState();
                     console.log('☁️ Face add push:', ok, 'total:', getFaceProfiles().length);
                     const st = document.getElementById('faceRegStatus');
-                    if (st && ok) {
-                      st.textContent = `${getFaceProfiles().length} rostro(s) · sincronizado en la nube`;
-                      st.className = 'face-reg-status ok';
+                    if (st) {
+                      st.textContent = ok
+                        ? `${getFaceProfiles().length} rostro(s) · sincronizado en la nube`
+                        : `${getFaceProfiles().length} rostro(s) · error al sincronizar nube`;
+                      st.className = ok ? 'face-reg-status ok' : 'face-reg-status err';
                     }
                   } catch (e) { console.warn(e); }
                 })();
@@ -7102,7 +7241,9 @@
                   ? `✓ Acceso permitido — Bienvenido, ${result.profile.name}`
                   : `Rostro de ${result.profile.name}… (${faceMatchStreak}/${FACE_MATCH_STREAK_NEED})`;
               }
-              if (faceMatchStreak >= FACE_MATCH_STREAK_NEED) {
+              if (faceMatchStreak >= FACE_MATCH_STREAK_NEED && !unlockFinished) {
+                unlockFinished = true;
+                if (faceRaf) { cancelAnimationFrame(faceRaf); faceRaf = null; }
                 faceSessionAuthed = true;
                 try { speak(`Acceso permitido. Bienvenido ${result.profile.name}.`); } catch (e) {}
                 setTimeout(() => closeFaceScanOverlay({
