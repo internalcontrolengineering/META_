@@ -3826,11 +3826,21 @@
   // Vigilante de inactividad por intervalo (más fiable en móviles que setTimeout anidados)
   let idleWatchInterval = null;
 
+  function isFaceScanOpen() {
+    const ov = document.getElementById('faceScanOverlay');
+    return !!(ov && ov.classList.contains('visible')) || !!faceScanResolve;
+  }
+
   function startIdleWatcher() {
     if (idleWatchInterval) return;
     idleWatchInterval = setInterval(() => {
       if (!attentionActive) return;
       if (isSpeaking || speakCooldown || awaitingCommand) return;
+      // No contar inactividad mientras pide/escanea rostro o aún no hay sesión autorizada
+      try {
+        if (typeof isFaceScanOpen === 'function' && isFaceScanOpen()) return;
+        if (typeof requireFaceAuth === 'function' && requireFaceAuth()) return;
+      } catch (e) {}
       const timeout = Math.max(3000, settings.IDLE_TIMEOUT_MS || 10000);
       const elapsed = Date.now() - lastActivityAt;
       if (elapsed >= timeout) {
@@ -3890,6 +3900,7 @@
   }
 
   function enterRestMode(silent = false) {
+    try { if (typeof clearFaceSession === 'function') clearFaceSession(); } catch (e) {}
     try { clearFaceSession(); } catch (e) {}
     if (!attentionActive && document.getElementById('restDashboard')?.classList.contains('visible')) {
       return; // ya en descanso
@@ -3963,9 +3974,9 @@
     stopPhraseRotation();
     stopRestImageCycle();
 
+    // El contador de inactividad solo corre tras acceso facial (si el bloqueo está activo)
     lastActivityAt = Date.now();
     startIdleWatcher();
-    // Al despertar, revisar recordatorios vencidos (el aviso debe verse también despierta)
     setTimeout(() => { try { checkRemindersDue(); } catch (e) {} }, 400);
   }
 
@@ -6796,10 +6807,11 @@
   // FACE_PROFILES: [{ id, name, descriptor[128], thumb, createdAt }]
   // ============================================================
   const FACE_API_MODEL_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights';
-  const FACE_MATCH_THRESHOLD = 0.48;
-  const FACE_MATCH_STREAK_NEED = 3;
-  const FACE_DENY_STREAK_NEED = 5;
-  const FACE_REGISTER_SAMPLES = 8;
+  const FACE_MATCH_THRESHOLD = 0.52;       // un poco más tolerante (distancia/ángulo)
+  const FACE_MATCH_STREAK_NEED = 2;        // más rápido al desbloquear
+  const FACE_DENY_STREAK_NEED = 4;
+  const FACE_REGISTER_SAMPLES = 5;         // registro más corto
+  const FACE_DETECT_INTERVAL_MS = 90;      // bucle más ágil
 
   let faceApiReady = false;
   let faceApiLoading = null;
@@ -7095,7 +7107,8 @@
 
   async function detectFaceDescriptor(video) {
     if (!video || video.readyState < 2) return null;
-    const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
+    // inputSize mayor + umbral bajo → detecta a más distancia y con menos acercamiento
+    const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.28 });
     const det = await faceapi
       .detectSingleFace(video, options)
       .withFaceLandmarks()
@@ -7123,6 +7136,7 @@
       ov.setAttribute('aria-hidden', 'true');
     }
     stopFaceScanStream();
+    try { hideFaceResultCard(); } catch (e) {}
     const resolve = faceScanResolve;
     faceScanResolve = null;
     faceScanMode = null;
@@ -7130,6 +7144,10 @@
     faceFailStreak = 0;
     faceLastDist = null;
     faceLastMatchName = null;
+    // Si hubo acceso OK, el contador ya se reinició al reconocer; si no, no arrancar descanso
+    if (result && result.ok && result.mode === 'unlock') {
+      try { lastActivityAt = Date.now(); } catch (e) {}
+    }
     if (resolve) resolve(result);
   }
 
@@ -7158,14 +7176,18 @@
 
       if (title) title.textContent = mode === 'register' ? 'Registrar rostro' : 'Verificación facial';
       if (sub) sub.textContent = mode === 'register'
-        ? `Capturando: ${regName}. Buena luz, mira a la cámara.`
-        : 'Solo un rostro de la lista autorizada puede continuar';
+        ? `Capturando: ${regName}. Buena luz; no hace falta acercarte tanto.`
+        : 'Mira a la cámara (puedes estar a distancia normal). Rostro autorizado requerido.';
       if (status) status.textContent = 'Cargando modelo de reconocimiento…';
 
       try {
         await ensureFaceApi();
         faceStream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: 'user'
+          },
           audio: false
         });
         const video = document.getElementById('faceScanVideo');
@@ -7192,7 +7214,7 @@
           if (registerFinished || unlockFinished) return;
           faceRaf = requestAnimationFrame(() => { loop(); });
           const now = performance.now();
-          if (now - lastDetectAt < 180) return;
+          if (now - lastDetectAt < (typeof FACE_DETECT_INTERVAL_MS === 'number' ? FACE_DETECT_INTERVAL_MS : 90)) return;
           lastDetectAt = now;
 
           try {
@@ -7315,6 +7337,12 @@
                 unlockFinished = true;
                 if (faceRaf) { cancelAnimationFrame(faceRaf); faceRaf = null; }
                 faceSessionAuthed = true;
+                // A partir de AHORA corre el auto-descanso por inactividad
+                try {
+                  lastActivityAt = Date.now();
+                  if (typeof registerActivity === 'function') registerActivity();
+                  if (typeof startIdleWatcher === 'function') startIdleWatcher();
+                } catch (e) {}
                 if (status) status.textContent = '';
                 showFaceResultCard('ok', 'Acceso permitido', `Bienvenido/a, ${result.profile.name}`);
                 setTimeout(() => closeFaceScanOverlay({
@@ -7322,7 +7350,7 @@
                   mode: 'unlock',
                   name: result.profile.name,
                   profileId: result.profile.id
-                }), 1200);
+                }), 900);
               } else if (status && faceMatchStreak < FACE_MATCH_STREAK_NEED) {
                 status.textContent = `Reconocido: ${result.profile.name}…`;
               }
