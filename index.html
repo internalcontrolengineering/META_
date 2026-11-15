@@ -2919,7 +2919,14 @@
         <div class="face-result-sub" id="faceResultSub"></div>
       </div>
       <div class="face-scan-status" id="faceScanStatus">Inicializando cámara…</div>
+      <div id="facePasswordPanel" style="display:none; padding:0 16px 8px; text-align:left;">
+        <div class="settings-hint" style="margin:0 0 8px;">Introduce la contraseña alternativa:</div>
+        <input type="password" class="settings-input" id="faceUnlockPasswordInput" placeholder="Contraseña" autocomplete="current-password">
+        <div class="face-reg-status" id="faceUnlockPasswordStatus" style="margin-top:6px;"></div>
+      </div>
       <div class="face-scan-actions">
+        <button type="button" class="face-scan-btn ghost" id="faceScanUsePassword" style="display:none;">Usar contraseña</button>
+        <button type="button" class="face-scan-btn" id="faceUnlockPasswordSubmit" style="display:none;">Desbloquear</button>
         <button type="button" class="face-scan-btn ghost" id="faceScanCancel">Cancelar</button>
       </div>
     </div>
@@ -3106,6 +3113,19 @@
             </button>
           </div>
           <div class="settings-hint">Puedes registrar varias personas. Cada una se identifica por nombre. Al verificar, si coincide cualquiera de la lista se concede el acceso. Usa buena luz al capturar. Si el bloqueo está apagado, cualquiera puede usar menú y ajustes.</div>
+          <div class="settings-label" style="margin-top:14px;">Contraseña alternativa</div>
+          <div class="settings-hint" style="margin-top:0;margin-bottom:8px;">Si la cámara no funciona o falla el reconocimiento facial, podrás desbloquear con esta contraseña. Se pide al registrar el primer rostro si aún no hay ninguna.</div>
+          <div class="face-reg-status" id="facePasswordStatus">Sin contraseña configurada</div>
+          <input type="password" class="settings-input" id="facePasswordInput" placeholder="Nueva contraseña" autocomplete="new-password" style="margin-top:8px;">
+          <input type="password" class="settings-input" id="facePasswordConfirm" placeholder="Confirmar contraseña" autocomplete="new-password" style="margin-top:8px;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+            <button type="button" class="settings-test-button" id="facePasswordSaveBtn" style="flex:1; min-width:140px;">
+              <i class="fas fa-key"></i> Guardar contraseña
+            </button>
+            <button type="button" class="settings-danger-button" id="facePasswordClearBtn" style="flex:1; min-width:120px; padding:11px;">
+              Quitar contraseña
+            </button>
+          </div>
         </div>
 
         <div class="settings-section">
@@ -3261,6 +3281,7 @@
     FACE_PROFILES: [],
     FACE_TEMPLATE: null,
     FACE_THUMB: null,
+    FACE_PASSWORD: '',
     THEME: 'theme-gold',
     DEFAULT_CITY: 'Madrid',
     CITY_AUTO: false,
@@ -3302,6 +3323,9 @@
   }
   if (typeof settings.FACE_LOCK_ENABLED !== 'boolean') {
     settings.FACE_LOCK_ENABLED = false;
+  }
+  if (typeof settings.FACE_PASSWORD !== 'string') {
+    settings.FACE_PASSWORD = '';
   }
   if (!Array.isArray(settings.FACE_PROFILES)) settings.FACE_PROFILES = [];
   if (settings.FACE_TEMPLATE && !Array.isArray(settings.FACE_TEMPLATE)) {
@@ -7056,6 +7080,79 @@
     return { ...best, matched: true };
   }
 
+  function hasFacePassword() {
+    return !!(settings.FACE_PASSWORD && String(settings.FACE_PASSWORD).length > 0);
+  }
+
+  function updateFacePasswordUI() {
+    const st = document.getElementById('facePasswordStatus');
+    if (!st) return;
+    if (hasFacePassword()) {
+      st.textContent = 'Contraseña alternativa configurada';
+      st.className = 'face-reg-status ok';
+    } else {
+      st.textContent = 'Sin contraseña configurada';
+      st.className = 'face-reg-status';
+    }
+  }
+
+  function saveFacePasswordFromInputs() {
+    const a = document.getElementById('facePasswordInput');
+    const b = document.getElementById('facePasswordConfirm');
+    const p1 = (a?.value || '').trim();
+    const p2 = (b?.value || '').trim();
+    if (!p1) {
+      alert('Escribe una contraseña.');
+      return false;
+    }
+    if (p1.length < 4) {
+      alert('La contraseña debe tener al menos 4 caracteres.');
+      return false;
+    }
+    if (p1 !== p2) {
+      alert('Las contraseñas no coinciden.');
+      return false;
+    }
+    settings.FACE_PASSWORD = p1;
+    saveSettings();
+    if (a) a.value = '';
+    if (b) b.value = '';
+    updateFacePasswordUI();
+    try { pushCloudState(); } catch (e) {}
+    return true;
+  }
+
+  /** Tras registrar un rostro: si no hay contraseña, pedirla. */
+  function promptFacePasswordAfterRegister() {
+    if (hasFacePassword()) return;
+    const p1 = prompt('Rostro registrado. Define una contraseña alternativa (por si la cámara no funciona):');
+    if (p1 === null) return;
+    const trimmed = String(p1).trim();
+    if (!trimmed) {
+      alert('No se guardó contraseña. Puedes configurarla después en Ajustes → Comport.');
+      return;
+    }
+    if (trimmed.length < 4) {
+      alert('La contraseña debe tener al menos 4 caracteres. Configúrala en Ajustes → Comport.');
+      return;
+    }
+    const p2 = prompt('Confirma la contraseña alternativa:');
+    if (p2 === null || String(p2).trim() !== trimmed) {
+      alert('No coinciden. Puedes configurarla después en Ajustes → Comport.');
+      return;
+    }
+    settings.FACE_PASSWORD = trimmed;
+    saveSettings();
+    updateFacePasswordUI();
+    try { pushCloudState(); } catch (e) {}
+  }
+
+  function tryUnlockWithPassword(password) {
+    const expected = String(settings.FACE_PASSWORD || '');
+    if (!expected) return false;
+    return String(password || '') === expected;
+  }
+
   function updateFaceRegUI() {
     const status = document.getElementById('faceRegStatus');
     const toggle = document.getElementById('toggleFaceLock');
@@ -7075,6 +7172,8 @@
         status.className = 'face-reg-status';
       }
     }
+
+    updateFacePasswordUI();
 
     if (listEl) {
       if (!profiles.length) {
@@ -7299,6 +7398,16 @@
     }
     stopFaceScanStream();
     try { hideFaceResultCard(); } catch (e) {}
+    const pwdPanel = document.getElementById('facePasswordPanel');
+    const pwdBtn = document.getElementById('faceScanUsePassword');
+    const pwdSubmit = document.getElementById('faceUnlockPasswordSubmit');
+    const pwdInput = document.getElementById('faceUnlockPasswordInput');
+    const pwdSt = document.getElementById('faceUnlockPasswordStatus');
+    if (pwdPanel) pwdPanel.style.display = 'none';
+    if (pwdBtn) pwdBtn.style.display = 'none';
+    if (pwdSubmit) pwdSubmit.style.display = 'none';
+    if (pwdInput) pwdInput.value = '';
+    if (pwdSt) { pwdSt.textContent = ''; pwdSt.className = 'face-reg-status'; }
     const resolve = faceScanResolve;
     faceScanResolve = null;
     faceScanMode = null;
@@ -7311,6 +7420,61 @@
       try { lastActivityAt = Date.now(); } catch (e) {}
     }
     if (resolve) resolve(result);
+  }
+
+  function showFacePasswordUnlockUI(reasonMsg) {
+    if (!hasFacePassword()) return;
+    const pwdBtn = document.getElementById('faceScanUsePassword');
+    const status = document.getElementById('faceScanStatus');
+    if (pwdBtn) pwdBtn.style.display = '';
+    if (reasonMsg && status) status.textContent = reasonMsg;
+  }
+
+  function activateFacePasswordPanel() {
+    if (!hasFacePassword()) {
+      const status = document.getElementById('faceScanStatus');
+      if (status) status.textContent = 'No hay contraseña alternativa configurada. Configúrala en Ajustes → Comport.';
+      return;
+    }
+    stopFaceScanStream();
+    const pwdPanel = document.getElementById('facePasswordPanel');
+    const pwdBtn = document.getElementById('faceScanUsePassword');
+    const pwdSubmit = document.getElementById('faceUnlockPasswordSubmit');
+    const pwdInput = document.getElementById('faceUnlockPasswordInput');
+    const status = document.getElementById('faceScanStatus');
+    if (pwdPanel) pwdPanel.style.display = 'block';
+    if (pwdBtn) pwdBtn.style.display = 'none';
+    if (pwdSubmit) pwdSubmit.style.display = '';
+    if (status) status.textContent = 'Introduce la contraseña alternativa';
+    if (pwdInput) {
+      pwdInput.value = '';
+      setTimeout(() => pwdInput.focus(), 50);
+    }
+  }
+
+  function submitFacePasswordUnlock() {
+    const pwdInput = document.getElementById('faceUnlockPasswordInput');
+    const pwdSt = document.getElementById('faceUnlockPasswordStatus');
+    const val = pwdInput ? pwdInput.value : '';
+    if (!tryUnlockWithPassword(val)) {
+      if (pwdSt) {
+        pwdSt.textContent = 'Contraseña incorrecta';
+        pwdSt.className = 'face-reg-status err';
+      }
+      return;
+    }
+    faceSessionAuthed = true;
+    try {
+      lastActivityAt = Date.now();
+      if (typeof registerActivity === 'function') registerActivity();
+      if (typeof startIdleWatcher === 'function') startIdleWatcher();
+    } catch (e) {}
+    if (pwdSt) {
+      pwdSt.textContent = 'Acceso permitido';
+      pwdSt.className = 'face-reg-status ok';
+    }
+    showFaceResultCard('ok', 'Acceso permitido', 'Desbloqueado con contraseña');
+    setTimeout(() => closeFaceScanOverlay({ ok: true, mode: 'unlock', via: 'password' }), 700);
   }
 
   function openFaceScanOverlay(mode) {
@@ -7341,6 +7505,11 @@
         ? `Capturando: ${regName}. Buena luz; no hace falta acercarte tanto.`
         : 'Mira a la cámara (puedes estar a distancia normal). Rostro autorizado requerido.';
       if (status) status.textContent = 'Cargando modelo de reconocimiento…';
+      // Contraseña alternativa solo en desbloqueo
+      if (mode === 'unlock' && hasFacePassword()) {
+        const pwdBtn = document.getElementById('faceScanUsePassword');
+        if (pwdBtn) pwdBtn.style.display = '';
+      }
 
       try {
         await ensureFaceApi();
@@ -7524,6 +7693,7 @@
                 ov.classList.add('failed');
                 if (status) status.textContent = '';
                 showFaceResultCard('err', 'Acceso denegado', 'El rostro no está registrado. No tienes permiso para continuar.');
+                if (hasFacePassword()) showFacePasswordUnlockUI('Puedes usar la contraseña alternativa.');
               } else {
                 ov.classList.remove('failed');
                 try { hideFaceResultCard(); } catch (e) {}
@@ -7537,8 +7707,13 @@
         loop();
       } catch (e) {
         console.warn('Face scan failed', e);
-        if (status) status.textContent = e.message || 'No se pudo iniciar el reconocimiento';
-        setTimeout(() => closeFaceScanOverlay({ ok: false, reason: 'camera' }), 1500);
+        if (mode === 'unlock' && hasFacePassword()) {
+          showFacePasswordUnlockUI(e.message || 'Cámara no disponible. Usa la contraseña alternativa.');
+          activateFacePasswordPanel();
+        } else {
+          if (status) status.textContent = e.message || 'No se pudo iniciar el reconocimiento';
+          setTimeout(() => closeFaceScanOverlay({ ok: false, reason: 'camera' }), 1500);
+        }
       }
     });
   }
@@ -8519,6 +8694,34 @@
   document.getElementById('faceScanCancel')?.addEventListener('click', () => {
     closeFaceScanOverlay({ ok: false, reason: 'cancel' });
   });
+  document.getElementById('faceScanUsePassword')?.addEventListener('click', () => {
+    activateFacePasswordPanel();
+  });
+  document.getElementById('faceUnlockPasswordSubmit')?.addEventListener('click', () => {
+    submitFacePasswordUnlock();
+  });
+  document.getElementById('faceUnlockPasswordInput')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      submitFacePasswordUnlock();
+    }
+  });
+  document.getElementById('facePasswordSaveBtn')?.addEventListener('click', () => {
+    if (saveFacePasswordFromInputs()) {
+      alert('Contraseña alternativa guardada.');
+    }
+  });
+  document.getElementById('facePasswordClearBtn')?.addEventListener('click', () => {
+    if (!hasFacePassword()) {
+      updateFacePasswordUI();
+      return;
+    }
+    if (!confirm('¿Eliminar la contraseña alternativa?')) return;
+    settings.FACE_PASSWORD = '';
+    saveSettings();
+    updateFacePasswordUI();
+    try { pushCloudState(); } catch (e) {}
+  });
   document.getElementById('toggleFaceLock')?.addEventListener('change', (e) => {
     if (e.target.checked && !hasAnyFaceProfile()) {
       e.target.checked = false;
@@ -8544,6 +8747,8 @@
     if (res && res.ok) {
       faceSessionAuthed = true;
       updateFaceRegUI();
+      // Tras añadir un rostro, pedir contraseña alternativa si aún no existe
+      setTimeout(() => promptFacePasswordAfterRegister(), 400);
     }
   });
   document.getElementById('faceClearBtn')?.addEventListener('click', () => {
