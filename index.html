@@ -4023,10 +4023,11 @@
     idleWatchInterval = setInterval(() => {
       if (!attentionActive) return;
       if (isSpeaking || speakCooldown || awaitingCommand) return;
-      // No contar inactividad mientras pide/escanea rostro o aún no hay sesión autorizada
+      // No contar inactividad mientras el escáner facial está abierto.
+      // El bloqueo facial sigue protegiendo menú/ajustes; no debe impedir el auto-descanso
+      // tras despertar (enterRestMode limpia la sesión facial a propósito).
       try {
         if (typeof isFaceScanOpen === 'function' && isFaceScanOpen()) return;
-        if (typeof requireFaceAuth === 'function' && requireFaceAuth()) return;
       } catch (e) {}
       const timeout = Math.max(3000, settings.IDLE_TIMEOUT_MS || 10000);
       const elapsed = Date.now() - lastActivityAt;
